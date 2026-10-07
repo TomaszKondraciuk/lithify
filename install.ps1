@@ -26,6 +26,9 @@
     # Native programs report through their exit codes ($LASTEXITCODE), checked after each one:
     # with 'Stop', Windows PowerShell 5.1 would end the script on any line a program writes to stderr.
     $ErrorActionPreference = 'Continue'
+    # Programs this window runs write UTF-8 (winget's progress bar, names with diacritics): read
+    # them as such, not in the console's OEM code page (852 on a Polish Windows: garbled bars).
+    try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch { $null = $_ }
     $Repo = if ($env:LITHIFY_REPO) { $env:LITHIFY_REPO } else { 'https://github.com/OWNER/lithify.git' }
     $Root = Join-Path $env:LOCALAPPDATA 'lithify'
     $Dest = if ($env:LITHIFY_HOME) { $env:LITHIFY_HOME } else { Join-Path $Root 'app' }
@@ -77,7 +80,10 @@
         if ($note) { Info $note }
         if (-not (Agree "Install $what now with winget?")) { return $null }
         Say "installing $what (winget)"
-        winget install -e --id $id --silent --accept-package-agreements --accept-source-agreements @extra | Out-Host
+        # From winget's own catalogue only: on a fresh Windows the Microsoft Store source often fails
+        # ("The server certificate did not match", 0x8a15005e), and winget then refuses to choose
+        # between sources even when the package is only in this one.
+        winget install -e --id $id --source winget --silent --accept-package-agreements --accept-source-agreements @extra | Out-Host
         $code = $LASTEXITCODE
         Update-Path
         return $code

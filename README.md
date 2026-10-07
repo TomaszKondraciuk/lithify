@@ -71,7 +71,7 @@ web page later.
 
 | | |
 |---|---|
-| **Windows** | `Lithify-Windows.cmd` – if Windows warns ("Windows protected your PC"), choose *More info → Run anyway* |
+| **Windows** | `Lithify-Windows.cmd` – Windows asks once whether to run it ("The publisher could not be verified"): click *Run* (if it says "Windows protected your PC" instead: *More info → Run anyway*) |
 | **macOS** | `Lithify-macOS.command` – the first time: right-click it → *Open* → *Open* (macOS 15 and newer: *System Settings → Privacy & Security → Open Anyway*) |
 | **Linux** | `Lithify-Linux.sh` – if it opens in a text editor: right-click → *Run as a Program*, or run `sh Lithify-Linux.sh` in a terminal |
 
