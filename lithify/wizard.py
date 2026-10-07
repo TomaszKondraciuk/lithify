@@ -177,7 +177,7 @@ def check_host(host) -> str | None:
     if not isinstance(host, str):
         return None
     host = host.strip()
-    return host if config.HOST_RE.fullmatch(host) and not host.startswith(("-", ".")) else None
+    return host if config.valid_host(host) and not host.startswith(("-", ".")) else None
 
 
 def check_name(name) -> str | None:
@@ -528,7 +528,9 @@ class Wizard:
                 return BUSY
             entry = {**_speaker({"host": host}, manual=True),
                      **next((s for s in self.speakers if s["host"] == host), {}), "supported": None}
-            self.speakers = [entry, *(s for s in self.speakers if s["host"] != host)]
+            # (an address typed before where nothing answered was a typo: the new one replaces it)
+            self.speakers = [entry, *(s for s in self.speakers if s["host"] != host
+                                      and not (s.get("manual") and s.get("reason_key") == "not_found"))]
             self._changed()
         return 202, {"started": True, "host": host}
 

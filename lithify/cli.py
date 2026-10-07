@@ -71,7 +71,7 @@ def write_config(target: Path, host: str, name: str | None = None, sid: str | No
     (`replace`, from `lithify setup --force`, starts it anew). Either way the file is replaced
     whole, and the previous one is kept as config.toml.<date>-<time>.bak (one per change, so a
     second `setup --force` never loses the original)."""
-    if not config.HOST_RE.fullmatch(host):
+    if not config.valid_host(host):
         raise RuntimeError(f"{host!r} is not an IP address or host name")
     probe = Device(config.Speaker("probe", host, "probe"))
     if not probe.reachable():

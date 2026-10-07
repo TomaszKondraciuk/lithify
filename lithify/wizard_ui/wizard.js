@@ -93,7 +93,7 @@
       search_again: 'Search again', k_model: 'Model', k_address: 'Address', k_lithify: 'Lithify',
       lithify_installed: 'installed (librespot {0})',
       unnamed: 'Lithe Audio speaker', model_unknown: 'unknown model',
-      sp_checking: 'checking…', sp_supported: 'supported', sp_unsupported: 'not supported',
+      sp_checking: 'checking…', sp_supported: 'supported', sp_unsupported: 'not supported', sp_silent: 'no answer',
       use_speaker: 'Use this speaker', use_aria: 'Use the speaker {0}',
       r_no_console: 'Its service console does not answer. Newer models (WiFi Speaker V3, PRO 2, iO1) are not supported yet; if this is a WiFi Speaker V2, WiFi PRO or Micro Subwoofer, restart it and search again.',
       r_not_found: 'Nothing answers at this address. Check the address and that the speaker is switched on.',
@@ -258,7 +258,7 @@
       search_again: 'Szukaj ponownie', k_model: 'Model', k_address: 'Adres', k_lithify: 'Lithify',
       lithify_installed: 'zainstalowany (librespot {0})',
       unnamed: 'Głośnik Lithe Audio', model_unknown: 'nieznany model',
-      sp_checking: 'sprawdzanie…', sp_supported: 'obsługiwany', sp_unsupported: 'nieobsługiwany',
+      sp_checking: 'sprawdzanie…', sp_supported: 'obsługiwany', sp_unsupported: 'nieobsługiwany', sp_silent: 'brak odpowiedzi',
       use_speaker: 'Wybierz ten głośnik', use_aria: 'Wybierz głośnik {0}',
       r_no_console: 'Jego konsola serwisowa nie odpowiada. Nowsze modele (WiFi Speaker V3, PRO 2, iO1) nie są jeszcze obsługiwane; jeśli to WiFi Speaker V2, WiFi PRO lub Micro Subwoofer, uruchom go ponownie i poszukaj jeszcze raz.',
       r_not_found: 'Pod tym adresem nic nie odpowiada. Sprawdź adres i czy głośnik jest włączony.',
@@ -634,6 +634,12 @@
     setProp($('btn-next'), 'disabled', running() || !(c && c.ok));
   }
 
+  // A typed address where nothing answers is no speaker found: it is shown by its address.
+  const silent = (s) => s.supported === false && s.reason_key === 'not_found';
+  const answered = () => st.speakers.filter((s) => !silent(s)).length;
+  const verdict = (s) => (s.supported == null ? 'sp_checking' : s.supported ? 'sp_supported'
+    : silent(s) ? 'sp_silent' : 'sp_unsupported');
+
   function drawSpeaker() {
     const task = st.task;
     const searching = running() && (task.kind === 'discover' || task.kind === 'probe');
@@ -642,8 +648,9 @@
       setText(status, task.kind === 'discover' ? t('searching') : t('probing', lastHost || ''));
       setClass(status, 'msg spin');
     } else if (st.searched || st.speakers.length) {
-      setText(status, st.speakers.length ? t('found_n', st.speakers.length) : t('none_found'));
-      setClass(status, `msg ${st.speakers.length ? '' : 'warn'}`.trim());
+      const n = answered();
+      setText(status, n ? t('found_n', n) : t('none_found'));
+      setClass(status, `msg ${n ? '' : 'warn'}`.trim());
     }
     setProp(status, 'hidden', !(searching || st.searched || st.speakers.length));
     keyed($('speakers'), st.speakers, (s) => s.host, () => {
@@ -657,15 +664,16 @@
       return li;
     }, (li, s) => {
       const r = refs.get(li);
-      const name = s.name || t('unnamed');
+      const quiet = silent(s);
+      const name = quiet ? s.host : s.name || t('unnamed');
       setClass(li, `speaker ${s.supported ? 'ok' : ''}`.trim());
       setText(r.name, name);
-      pill(r.pill, t(s.supported == null ? 'sp_checking' : s.supported ? 'sp_supported' : 'sp_unsupported'),
-        s.supported == null ? '' : s.supported ? 'ok' : 'bad');
+      pill(r.pill, t(verdict(s)), s.supported == null ? '' : s.supported ? 'ok' : quiet ? 'warn' : 'bad');
       setText(r.dtModel, t('k_model'));
       setText(r.model, s.model || t('model_unknown'));
       setText(r.dtAddr, t('k_address'));
       setText(r.addr, s.host);
+      for (const n of [r.dtModel, r.model, r.dtAddr, r.addr]) setProp(n, 'hidden', quiet); // (no speaker: no details)
       setText(r.dtLithify, t('k_lithify'));
       setText(r.lithify, s.librespot_version ? t('lithify_installed', s.librespot_version) : '');
       setProp(r.dtLithify, 'hidden', !s.librespot_version);
@@ -860,10 +868,10 @@
     if (first) return; // (it ended before this page was opened)
     if (task.kind === 'install') announce(task.ok ? t('ann_installed') : t('ann_failed', t(`err_${task.error_key || 'unknown'}`)));
     else if ((task.kind === 'check' || task.kind === 'start-docker') && task.ok) announce(t('ann_checked'));
-    else if (task.kind === 'discover' && task.ok) announce(t('ann_found', st.speakers.length));
+    else if (task.kind === 'discover' && task.ok) announce(t('ann_found', answered()));
     else if (task.kind === 'probe' && task.ok && st.speakers.length) { // (a typed address is listed first)
       const s = st.speakers[0];
-      announce(t('ann_probe', s.name || s.host, t(s.supported ? 'sp_supported' : 'sp_unsupported')));
+      announce(t('ann_probe', silent(s) ? s.host : s.name || s.host, t(verdict(s))));
     }
   }
 

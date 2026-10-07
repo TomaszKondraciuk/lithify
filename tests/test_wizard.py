@@ -643,6 +643,23 @@ class FlowTest(ServerCase):
         self.assertEqual([s["host"] for s in self.finished()["speakers"]], ["192.168.1.109", "192.168.1.110",
                                                                              "salon.local"])
 
+    def test_a_typo_is_refused_and_a_silent_address_gives_way_to_the_next(self):
+        for host in ("192.168.0", "192.168.0.256", "1234", "192.168.000.1"):
+            with self.subTest(host=host):
+                self.assertEqual(self.api("POST", "/api/add-host", {"host": host})[1]["error_key"], "bad_host")
+
+        def probe(host: str, with_info: bool) -> dict:
+            if host == "192.168.1.41":
+                return {"supported": False, "reason_key": "not_found", "reason": "timed out"}
+            return {"supported": True, "platform": "ls9", "name": "Salon"}
+
+        with mock.patch.object(wizard, "probe_speaker", probe):
+            self.api("POST", "/api/add-host", {"host": "192.168.1.41"})
+            self.assertEqual(self.finished()["speakers"][0]["reason_key"], "not_found")
+            self.api("POST", "/api/add-host", {"host": "192.168.1.40"})
+            hosts = [s["host"] for s in self.finished()["speakers"]]
+        self.assertEqual(hosts, ["192.168.1.40"])
+
     def test_a_speaker_that_runs_lithify_keeps_its_name(self):
         def probe(host: str, with_info: bool) -> dict:
             return {"supported": True, "platform": "ls9", "librespot_name": "Łazienka [Lithify]",

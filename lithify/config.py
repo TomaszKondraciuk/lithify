@@ -92,6 +92,19 @@ HOST_RE = re.compile(r"[A-Za-z0-9.:-]{1,253}")
 URL_RE = re.compile(r"http://[A-Za-z0-9.:/\-_\[\]]{1,192}")
 
 
+def valid_host(host: object) -> bool:
+    """A speaker's address: an IP address or a host name. Digits and dots alone must be an IPv4
+    address with all four numbers: "192.168.0" is a typo, though systems read it as 192.168.0.0."""
+    if not isinstance(host, str) or not HOST_RE.fullmatch(host):
+        return False
+    if host.replace(".", "").isdigit():
+        try:
+            ipaddress.IPv4Address(host)
+        except ValueError:
+            return False
+    return True
+
+
 class ConfigError(ValueError):
     pass
 
@@ -426,7 +439,7 @@ def load(explicit: str | None = None, env: dict | None = None) -> Config:
         single = len(raw_speakers) == 1
         host = env.get("LITHIFY_HOST") if single and env.get("LITHIFY_HOST") else raw.get("host", "")
         name = env.get("LITHIFY_NAME") if single and env.get("LITHIFY_NAME") else raw.get("name", "")
-        if not isinstance(host, str) or not HOST_RE.fullmatch(host):
+        if not valid_host(host):
             raise ConfigError(f"speaker {sid}: `host` (IP address or hostname) is required")
         try:
             normalize(OPTIONS["name"], name)
