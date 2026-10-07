@@ -6,7 +6,8 @@ show what is running. `lithify logs` prints the agent's and librespot's recent l
 ## `lithify setup` finds no speaker
 
 - The computer and the speaker must be on the same network (and VLAN). `lithify discover` scans
-  your computer's /24; give the address directly with `lithify setup --host <ip>` otherwise. The
+  your computer's /24 for Google Cast devices (TCP 8008), then asks each one what it is; give the
+  address directly with `lithify setup --host <ip>` otherwise (in the wizard: type it in). The
   Lithe app or your router shows it.
 - "does not answer on the service console (TCP 23)": the speaker is not an LS9 model (see
   [platforms.md](platforms.md)), or something filters port 23 between you and it.

@@ -25,7 +25,8 @@ class ProbeTest(unittest.TestCase):
     def probe(self, body: bytes):
         reply = Reply(body)
         with mock.patch.object(discovery.socket, "create_connection"), \
-                mock.patch.object(discovery.urllib.request, "urlopen", return_value=reply):
+                mock.patch.object(discovery.urllib.request, "urlopen", return_value=reply), \
+                mock.patch.object(discovery, "_greets", return_value=False):
             return discovery._probe("192.0.2.7", 0.1), reply
 
     def test_a_speaker_is_read_up_to_a_limit(self):
@@ -52,12 +53,14 @@ class ProbeTest(unittest.TestCase):
 
 
 class WithoutOfficialSpotifyTest(unittest.TestCase):
-    """A speaker whose official Spotify refuses its port (Lithify hides it, or it crashed)."""
+    """A Cast device whose official Spotify does not answer (Lithify hides it, or it crashed)."""
 
-    def probe(self, refused: bool, json_by_url: dict, greets: bool):
+    def probe(self, json_by_url: dict, greets: bool, cast: type[OSError] | None = None):
         def connect(addr, timeout=None):
-            if addr[1] == 9095:
-                raise ConnectionRefusedError if refused else TimeoutError
+            if addr[1] != discovery.CAST_PORT:
+                raise AssertionError(f"only Cast's port is tried first, not {addr[1]}")
+            if cast:
+                raise cast
             return mock.MagicMock()
 
         def fetch(url, timeout):
@@ -70,23 +73,31 @@ class WithoutOfficialSpotifyTest(unittest.TestCase):
 
     def test_lithifys_page_tells_what_it_is(self):
         status = {"speaker": {"name": "Kuchnia", "model": "Lithe Audio WiFiCeilingSpeakerV2"}}
-        found, _, gr = self.probe(True, {":8090/api/status": status}, greets=False)
+        found, _, gr = self.probe({":8090/api/status": status}, greets=False)
         self.assertEqual((found["name"], found["found_by"], found["spotify_esdk"]), ("Kuchnia", "lithify", ""))
         gr.assert_not_called()
 
     def test_a_libre_cast_speaker_is_a_candidate(self):
-        found, _, _ = self.probe(True, {":8008/setup/eureka_info": {"name": "Kuchnia"}}, greets=True)
+        found, _, _ = self.probe({":8008/setup/eureka_info": {"name": "Kuchnia"}}, greets=True)
         self.assertEqual((found["name"], found["found_by"]), ("Kuchnia", "libre"))
 
     def test_other_devices_are_not_speakers(self):
-        self.assertIsNone(self.probe(True, {":8090/api/status": {"speaker": {"model": "Other"}}}, greets=False)[0])
-        self.assertIsNone(self.probe(True, {":8008/setup/eureka_info": {"name": "TV"}}, greets=False)[0])
-
-    def test_a_host_that_does_not_answer_is_not_asked_again(self):
-        found, js, gr = self.probe(False, {}, greets=True)
-        self.assertIsNone(found)
-        js.assert_not_called()
+        self.assertIsNone(self.probe({":8090/api/status": {"speaker": {"model": "Other"}}}, greets=False)[0])
+        self.assertIsNone(self.probe({":8008/setup/eureka_info": {"name": "TV"}}, greets=False)[0])
+        other = {"brandDisplayName": "Other", "modelDisplayName": "Box", "remoteName": "Salon"}
+        found, _, gr = self.probe({":9095/zc": other}, greets=True)
+        self.assertIsNone(found)  # (its official Spotify names another brand: nothing more is asked)
         gr.assert_not_called()
+
+    def test_only_a_cast_device_is_asked_what_it_is(self):
+        # A refused port as much as a silent one: Windows tries a refused connection for ~3 s, so
+        # within the scan's time a speaker would look absent if its other ports were the sign.
+        for error in (TimeoutError, ConnectionRefusedError, OSError):
+            with self.subTest(error=error.__name__):
+                found, js, gr = self.probe({}, greets=True, cast=error)
+                self.assertIsNone(found)
+                js.assert_not_called()
+                gr.assert_not_called()
 
 
 if __name__ == "__main__":

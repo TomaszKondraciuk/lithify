@@ -1,10 +1,13 @@
 """Find Lithe Audio speakers on the local network.
 
-Every LS9 speaker runs the official Spotify eSDK, whose zeroconf endpoint (TCP 9095) names the
-brand: probing the local /24 for it needs no multicast and works across most home routers. A
-speaker whose official client does not run (Lithify hides it, or it crashed: the firmware never
-starts it again) refuses that port; it is found by Lithify's own page, or as a Libre Cast
-speaker: its service console greets on TCP 23 and Cast names it (nothing is sent to the console).
+Every LS9 speaker is a Google Cast device: probing the local /24 for Cast's port (TCP 8008) needs
+no multicast, works across most home routers and is quick on every system, since an open port
+accepts at once. (A closed one is no quick sign: Windows tries a refused connection again for
+about 3 seconds.) A Cast device is then asked what it is. The official Spotify eSDK's zeroconf
+endpoint (TCP 9095) names the brand; a speaker whose official client does not run (Lithify hides
+it, or it crashed: the firmware never starts it again) is found by Lithify's own page, or as a
+Libre Cast speaker: its service console greets on TCP 23 and Cast names it (nothing is sent to
+the console).
 """
 from __future__ import annotations
 
@@ -33,6 +36,7 @@ def printable(text) -> str:
 
 
 MAX_REPLY = 65536  # a getInfo reply is about 1 KB: a device that sends more is not a speaker
+CAST_PORT = 8008
 
 
 def _json(url: str, timeout: float) -> object:
@@ -56,14 +60,12 @@ def _greets(host: str, port: int, greeting: bytes, timeout: float) -> bool:
 
 def _probe(host: str, timeout: float) -> dict | None:
     try:
-        socket.create_connection((host, 9095), timeout=timeout).close()
-    except ConnectionRefusedError:
-        return _probe_without_esdk(host, timeout)  # the host is there, its official Spotify is not
+        socket.create_connection((host, CAST_PORT), timeout=timeout).close()
     except OSError:
-        return None
+        return None  # no Cast device there
     info = _json(f"http://{host}:9095/zc?action=getInfo", 3)
     if not isinstance(info, dict):
-        return None
+        return _probe_without_esdk(host, timeout)  # a Cast device whose official Spotify does not answer
     brand = f"{info.get('brandDisplayName', '')} {info.get('modelDisplayName', '')}"
     if "lithe" not in brand.lower():
         return None
@@ -81,14 +83,14 @@ def _probe_without_esdk(host: str, timeout: float) -> dict | None:
                 "spotify_esdk": "", "found_by": "lithify"}
     if not _greets(host, 23, b"CONNECTED", timeout):
         return None
-    cast = _json(f"http://{host}:8008/setup/eureka_info?params=name", 2)
+    cast = _json(f"http://{host}:{CAST_PORT}/setup/eureka_info?params=name", 2)
     if not isinstance(cast, dict):
         return None
     return {"host": host, "name": printable(cast.get("name")), "model": "Libre Cast speaker", "spotify_esdk": "",
             "found_by": "libre"}
 
 
-def discover(network: str | None = None, timeout: float = 0.6) -> list[dict]:
+def discover(network: str | None = None, timeout: float = 1.0) -> list[dict]:
     """Lithe speakers in `network` (default: this computer's /24)."""
     if network is None:
         ip = local_ipv4()
