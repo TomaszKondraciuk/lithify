@@ -276,7 +276,8 @@ class DockerTest(unittest.TestCase):
         self.assertEqual(bundle._mount("lithify-cargo", "/cargo"),
                          ["--mount", "type=volume,source=lithify-cargo,target=/cargo"])
         spec = bundle._mount(Path("/tmp/a,b"), "/src", readonly=True)[1]
-        self.assertEqual(spec, 'type=bind,"source=/tmp/a,b",target=/src,readonly')
+        # (the path as this system resolves it: /private/tmp on macOS, D:\tmp on Windows)
+        self.assertEqual(spec, f'type=bind,"source={Path("/tmp/a,b").resolve()}",target=/src,readonly')
 
     def test_no_user_mapping_on_windows(self):
         with mock.patch.object(hostos, "WINDOWS", True):
