@@ -129,6 +129,7 @@
       sub_compile: 'compiling librespot – the longest part', sub_reuse: 'librespot is unchanged: reusing the last build',
       sub_agent: 'building the speaker’s agent', sub_bundle: 'packing it all for the speaker',
       sub_download: 'downloading the ready-made software',
+      sub_firewall: 'Windows asks for permission (a firewall rule, so the speaker can download its software from this computer): choose “Yes”',
       cancel: 'Cancel', stopping: 'Stopping…',
       confirm_cancel: 'Stop the installation? You can start it again later.',
       confirm_cancel_speaker: 'The speaker is being updated right now. If you stop, it keeps working (with the previous version, or it finishes on its own), and you can start the installation again. Stop now?',
@@ -294,6 +295,7 @@
       sub_compile: 'kompilacja librespot – to trwa najdłużej', sub_reuse: 'librespot bez zmian: użyta ostatnia kompilacja',
       sub_agent: 'budowanie agenta głośnika', sub_bundle: 'pakowanie wszystkiego dla głośnika',
       sub_download: 'pobieranie gotowego oprogramowania',
+      sub_firewall: 'Windows prosi o zgodę (reguła zapory, żeby głośnik mógł pobrać oprogramowanie z tego komputera): wybierz „Tak”',
       cancel: 'Anuluj', stopping: 'Zatrzymywanie…',
       confirm_cancel: 'Przerwać instalację? Możesz ją później uruchomić ponownie.',
       confirm_cancel_speaker: 'Głośnik jest właśnie aktualizowany. Jeśli przerwiesz, będzie dalej działał (w poprzedniej wersji albo sam dokończy), a instalację można uruchomić ponownie. Przerwać teraz?',
@@ -438,7 +440,7 @@
   // Which step shows what went wrong in a task.
   const TASK_STEP = { check: 'computer', 'start-docker': 'computer', discover: 'speaker', probe: 'speaker', install: 'install' };
   let st = null; // the last state from the computer
-  const drawn = { rev: -1, lang: '', step: '', error: '', phase: '', task: '' };
+  const drawn = { rev: -1, lang: '', step: '', error: '', phase: '', task: '', ask: '' };
   let offset = 0; // the computer's clock minus this browser's, in seconds
   let timer = 0;
   let misses = 0; // polls in a row without an answer
@@ -748,7 +750,7 @@
     const now = $('install-now');
     if (live && task.phase && PHASES.includes(task.phase)) {
       const label = t(`ph_${task.phase}`);
-      setText(now, t('now', task.phase === 'build' && task.step ? t('now_step', label, t(`sub_${task.step}`)) : label));
+      setText(now, t('now', task.step ? t('now_step', label, t(`sub_${task.step}`)) : label));
     }
     setProp(now, 'hidden', !live);
     const cancel = $('btn-cancel');
@@ -861,6 +863,9 @@
       drawn.phase = task.phase;
       announce(t('ann_phase', t(`ph_${task.phase}`)));
     }
+    const asking = task.kind === 'install' && !task.finished && task.step === 'firewall' ? id : '';
+    if (asking && asking !== drawn.ask) announce(t('sub_firewall')); // (Windows waits for an answer)
+    drawn.ask = asking;
     const ended = task.finished ? `${id}:${task.ok}` : '';
     if (!ended || ended === drawn.task) return;
     const first = drawn.task === '';

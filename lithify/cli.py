@@ -263,6 +263,13 @@ def cmd_install(a, cfg) -> int:
     s = cfg.speaker(a.speaker or host)
     d = Device(s)
     plat = d.platform()
+    # Windows asks for the firewall rule now, while whoever started this is here: after a first
+    # build (15-30 minutes) nobody may answer, and the question times out.
+    firewall = hostos.firewall_ready()
+    if not firewall:
+        say(f"{hostos.FIREWALL_ASK} to let speakers download from this computer (a firewall rule for "
+            f"TCP {hostos.FIREWALL_PORTS}): choose Yes")
+        firewall = hostos.ensure_firewall_rule()
     b = bundle.CACHE / "bundle"
     bundle.recover_bundle()  # (a build the computer stopped while it replaced the bundle)
     if not (b / "VERSIONS").exists() or a.build:
@@ -274,7 +281,7 @@ def cmd_install(a, cfg) -> int:
     push = sorted(config.OPTIONS) if a.settings else sorted(s.env_keys)
     if push:
         say(f"sending settings to the speaker: {', '.join(push) if not a.settings else 'all from config.toml'}")
-    if not hostos.ensure_firewall_rule():
+    if not firewall:
         print(f"warning: the Windows firewall may keep the speaker from downloading the update; allow "
               f"TCP {hostos.FIREWALL_PORTS} from your local network", file=sys.stderr)
     with tempfile.TemporaryDirectory(prefix="lithify-stage-") as tmp:

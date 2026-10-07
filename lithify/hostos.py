@@ -7,6 +7,7 @@ and the Windows firewall rule that lets the speaker reach this computer.
 """
 from __future__ import annotations
 
+import base64
 import contextlib
 import errno
 import os
@@ -30,6 +31,8 @@ _LOCK_CONTENDED = {errno.EACCES, getattr(errno, "EDEADLOCK", errno.EDEADLK)}
 COMPANION_PORT = 8095
 TEMP_PORTS = range(18096, 18100)
 FIREWALL_RULE = "Lithify"
+# How `lithify install` says that Windows asks for the rule (the wizard shows it as a step of its own).
+FIREWALL_ASK = "Windows asks for permission"
 FIREWALL_PORTS = f"{COMPANION_PORT},{TEMP_PORTS[0]}-{TEMP_PORTS[-1]}"
 
 
@@ -420,7 +423,7 @@ def firewall_rule_present() -> bool:
         return True
     try:
         r = subprocess.run(["netsh", "advfirewall", "firewall", "show", "rule", f"name={FIREWALL_RULE}"],
-                           capture_output=True, stdin=subprocess.DEVNULL, timeout=30)
+                           capture_output=True, stdin=subprocess.DEVNULL, timeout=30, **no_window())
     except (OSError, subprocess.SubprocessError):  # (a firewall service that does not answer)
         return False
     return r.returncode == 0
@@ -433,8 +436,9 @@ def firewall_advice(lan_ip: str = "") -> str:
     parts = lan_ip.split(".")
     net = ".".join(parts[:3]) + ".0/24" if len(parts) == 4 and all(p.isdigit() for p in parts) else "192.168.0.0/16"
     if WINDOWS:
-        fix = (f"Windows Defender Firewall blocks it: allow the rule \"{FIREWALL_RULE}\" (TCP {ports}) - Windows asks "
-               "once, answer Allow - and set this network to Private (Settings > Network > Properties), not Public.")
+        fix = (f"Windows Defender Firewall blocks it: allow the rule \"{FIREWALL_RULE}\" (TCP {ports}) - run this "
+               "again and answer Yes when Windows asks (that also lifts the block a \"Cancel\" made when Windows "
+               "asked about Python) - and set this network to Private (Settings > Network > Properties), not Public.")
     elif MACOS:
         fix = ("the macOS firewall blocks it: answer Allow when macOS asks whether Python may accept incoming "
                "connections, or allow it in System Settings > Network > Firewall > Options.")
@@ -448,16 +452,69 @@ def firewall_advice(lan_ip: str = "") -> str:
             "Wi-Fi that keeps devices apart.")
 
 
-def ensure_firewall_rule() -> bool:
-    """On Windows, add the rule once (Windows asks for an administrator's consent). True when the
-    speaker can reach this computer, as far as the firewall goes."""
-    if firewall_rule_present():
-        return True
-    args = " ".join(firewall_rule_command())
-    # Elevated (Windows asks), hidden, and waited for, so the result can be checked.
-    ps = f"Start-Process netsh -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '{args}'"
+def _ps_quote(text: str) -> str:
+    return "'" + text.replace("'", "''") + "'"
+
+
+def lithify_pythons() -> list[str]:
+    """The programs that wait for the speakers' connections on Windows: this Python, the one a
+    virtual environment runs it with, and their windowless twins (the helper's scheduled task)."""
+    found: dict[str, str] = {}
+    for exe in (sys.executable, getattr(sys, "_base_executable", "")):
+        for name in ("python.exe", "pythonw.exe") if exe else ():
+            path = Path(exe).with_name(name)
+            if path.is_file():
+                found.setdefault(os.path.normcase(str(path)), str(path))
+    return list(found.values())
+
+
+def python_blocks() -> list[str]:
+    """The firewall rules that block connections to Lithify's Python (their names). Windows makes
+    them when someone answers "Cancel" as it asks whether Python may accept connections, and a block
+    wins over the rule that allows the speakers in."""
+    pythons = lithify_pythons()
+    if not WINDOWS or not pythons:
+        return []
+    ps = (f"$p = @({','.join(_ps_quote(x) for x in pythons)}); "
+          "Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue | Where-Object { $p -contains $_.Program } | "
+          "Get-NetFirewallRule -ErrorAction SilentlyContinue | "
+          "Where-Object { $_.Direction -eq 'Inbound' -and $_.Action -eq 'Block' -and $_.Enabled -eq 'True' } | "
+          "ForEach-Object { $_.Name }")
     try:
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, timeout=300)
+        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], capture_output=True,
+                           text=True, errors="replace", stdin=subprocess.DEVNULL, timeout=60, **no_window())
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [line.strip() for line in r.stdout.splitlines() if line.strip()]
+
+
+def firewall_ready() -> bool:
+    """Nothing in the firewall keeps the speakers from this computer: the rule is there, and no
+    block for Lithify's Python. (True on other systems.)"""
+    return not WINDOWS or (firewall_rule_present() and not python_blocks())
+
+
+def ensure_firewall_rule() -> bool:
+    """On Windows, add the rule and lift the blocks of Lithify's Python, in one step that Windows asks
+    an administrator's consent for. True when the speaker can reach this computer, as far as the
+    firewall goes."""
+    if not WINDOWS:
+        return True
+    present, blocks = firewall_rule_present(), python_blocks()
+    if present and not blocks:
+        return True
+    steps = []
+    if not present:
+        steps.append("& netsh " + " ".join(_ps_quote(a) for a in firewall_rule_command()))
+    if blocks:
+        steps.append("Remove-NetFirewallRule -Name " + ",".join(_ps_quote(n) for n in blocks))
+    script = base64.b64encode("; ".join(steps).encode("utf-16-le")).decode("ascii")
+    # Elevated (Windows asks), hidden, and waited for, so the result can be checked.
+    ps = ("Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "
+          f"'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand','{script}'")
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, stdin=subprocess.DEVNULL,
+                       timeout=300, **no_window())
     except (OSError, subprocess.SubprocessError):
         return False
-    return firewall_rule_present()
+    return firewall_ready()

@@ -90,6 +90,18 @@ class PhaseTest(unittest.TestCase):
         self.assertEqual([f for _, f in seen if f is not None], sorted(f for _, f in seen if f is not None))
         self.assertEqual(seen[-1], ("agent", 0.88))
 
+    def test_windows_asking_for_the_firewall_rule_is_a_step_of_its_own(self):
+        ask = f"==> {hostos.FIREWALL_ASK} to let speakers download from this computer (a firewall rule): choose Yes"
+        task = wizard.Task("install", 0.0)
+        task.add(ask, 0.0)  # (a speaker configured before: nothing written first)
+        self.assertEqual((task.phase, task.step), ("prepare", "firewall"))
+        task = wizard.Task("install", 0.0)
+        for i, line in enumerate([FRESH[0], ask, FRESH[1]]):
+            task.add(line, float(i))
+            if i == 1:
+                self.assertEqual((task.phase, task.step), ("prepare", "firewall"))
+        self.assertEqual((task.phase, task.step), ("build", "image"))
+
     def test_a_bundle_built_before_skips_the_build(self):
         p = Phases([line for line in FRESH if not any(w in line for w in ("builder", "librespot", "agent", "bundle"))])
         self.assertEqual(p.seen, ["prepare", "install", "restart", "check"])

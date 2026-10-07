@@ -76,7 +76,7 @@ PHASES = ("prepare", "build", "install", "restart", "check")
 # The progress lines of `lithify install` ("==> ...", cli.say and bundle.say) that begin a phase.
 # (A published bundle is downloaded instead of built: "<file> ok" for each of its files.)
 _PHASE_STARTS = (
-    ("prepare", ("looking for Lithe Audio speakers", "found ", "wrote ", "added speaker")),
+    ("prepare", ("looking for Lithe Audio speakers", "found ", "wrote ", "added speaker", hostos.FIREWALL_ASK)),
     ("build", ("builder image", "newer stable release", "librespot", "compiling librespot", "lithify-agent",
                "bundle", "the published bundle", *(f"{f} ok" for f in bundle.BUNDLE_FILES))),
     ("install", ("installing ", "sending settings", "checking that the speaker", "checking whether the speaker")),
@@ -454,6 +454,8 @@ class Task:
             self.enter(nxt, now)
         if self.phase == "build" and (step := build_step(line[4:])):
             self.step, self.progress = step
+        elif self.phase == "prepare":  # (Windows waits for an answer to its question until the next line)
+            self.step = "firewall" if line[4:].startswith(hostos.FIREWALL_ASK) else None
 
     def _advance(self, m: re.Match) -> None:
         """A long step has come further: the bar moves within that step's part (never back)."""
