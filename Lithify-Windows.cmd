@@ -23,6 +23,7 @@ echo   15-30 minutes; the computer and the speaker must be on the
 echo   same network.
 echo(
 set "LITHIFY_LAUNCHER=1"
+set "LITHIFY_LAUNCHER_FILE=%~f0"
 set "PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 if not exist "%PS%" set "PS=powershell.exe"
 set "URL=https://raw.githubusercontent.com/OWNER/lithify/main/install.ps1"

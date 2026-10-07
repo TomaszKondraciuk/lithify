@@ -83,8 +83,14 @@
         # From winget's own catalogue only: on a fresh Windows the Microsoft Store source often fails
         # ("The server certificate did not match", 0x8a15005e), and winget then refuses to choose
         # between sources even when the package is only in this one.
-        winget install -e --id $id --source winget --silent --accept-package-agreements --accept-source-agreements @extra | Out-Host
-        $code = $LASTEXITCODE
+        $wingetArgs = @('install', '-e', '--id', $id, '--source', 'winget', '--silent', '--accept-package-agreements',
+                        '--accept-source-agreements') + $extra
+        # Straight to this window, where its progress bar draws in place (through the pipeline each
+        # frame of it would be a line of its own)
+        $p = Start-Process -FilePath (Get-Command winget).Source -ArgumentList $wingetArgs -NoNewWindow -PassThru
+        $null = $p.Handle  # (keeps the exit code readable once it ends)
+        $p.WaitForExit()
+        $code = $p.ExitCode
         Update-Path
         return $code
     }
@@ -437,7 +443,45 @@
         return (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending')
     }
 
+    # How to start this installer again: the launcher it came from, or this file; none when pasted.
+    function Get-AgainCommand {
+        $launcher = $env:LITHIFY_LAUNCHER_FILE
+        if ($launcher -and (Test-Path -LiteralPath $launcher)) { return "`"$launcher`"" }
+        if ($PSCommandPath) {
+            $ps = P $env:SystemRoot 'System32' 'WindowsPowerShell' 'v1.0' 'powershell.exe'
+            return "`"$ps`" -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+        }
+        return $null
+    }
+
+    # The restart can be now: Windows then starts this installer again once the person signs in
+    # (RunOnce: one time). Never without asking, not even with LITHIFY_YES: a restart closes
+    # everything that is open.
     function Stop-ForRestart([string]$why) {
+        $again = Get-AgainCommand
+        if ($again -and $env:LITHIFY_YES -ne '1') {
+            Say "Windows needs a restart $why"
+            Info 'Lithify can restart it now and go on by itself once you sign in again.'
+            $a = Read-Host '    Restart Windows now? Save your work in other programs first. [Y/n]'
+            if ($a -eq '' -or $a -match '^[YyTt]') {
+                $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce'
+                try {
+                    if (-not (Test-Path $key)) { New-Item -Path $key -ErrorAction Stop | Out-Null }
+                    Set-ItemProperty -Path $key -Name 'Lithify' -Value $again -ErrorAction Stop
+                    & (P $env:SystemRoot 'System32' 'shutdown.exe') /r /t 20 /c 'Lithify: restarting Windows to finish the installation'
+                    if ($LASTEXITCODE -eq 0) {
+                        Later 'Windows restarts in 20 seconds' @(
+                            'Once you sign in again, Lithify goes on by itself.',
+                            'To stop the restart: shutdown /a (in a terminal); then restart later yourself.')
+                    }
+                    Remove-ItemProperty -Path $key -Name 'Lithify' -ErrorAction SilentlyContinue
+                    Warn "Windows did not restart (code $LASTEXITCODE)"
+                } catch [System.Management.Automation.RuntimeException] {
+                    if ("$($_.Exception.Message)".StartsWith('==>')) { throw }
+                    Warn "cannot restart Windows from here: $($_.Exception.Message)"
+                }
+            }
+        }
         Later "Windows needs a restart $why" @(
             'Restart it (Start > Power > Restart). Afterwards double-click Lithify-Windows.cmd again (or run',
             'the same command again): it skips what is already done and goes on with Docker Desktop.')

@@ -891,12 +891,27 @@ speaker() {
   fi
 }
 
+# Windows, in Git Bash or a similar shell (Git for Windows runs .sh files on a double-click):
+# the Windows installer does the work, as a double-click on Lithify-Windows.cmd would.
+windows_installer() {
+  if [ -n "$HERE" ] && [ -f "$HERE/install.ps1" ] && command -v powershell.exe >/dev/null 2>&1; then
+    say "this is Windows: starting the Windows installer (install.ps1)"
+    ps1=$HERE/install.ps1
+    if command -v cygpath >/dev/null 2>&1; then ps1=$(cygpath -w "$ps1"); fi
+    exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ps1"
+  fi
+  die "this is Windows ($OS), not Linux or macOS" \
+    "double-click Lithify-Windows (Lithify-Windows.cmd) in Lithify's folder instead"
+}
+
 main() {
   if [ "${LITHIFY_LAUNCHER:-0}" != 1 ]; then
     printf 'Lithify installer: Spotify Connect (librespot) for Lithe Audio speakers\n\n'
   fi
+  if [ -f "$0" ]; then HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || HERE=""; fi
   case $OS in
     Linux | Darwin) ;;
+    MINGW* | MSYS* | CYGWIN*) windows_installer ;;
     *) warn "Lithify knows Linux, macOS and Windows; this is $OS: trying anyway" ;;
   esac
   if [ "$(id -u)" = 0 ]; then
@@ -908,7 +923,6 @@ main() {
   else
     SUDO="sudo "
   fi
-  if [ -f "$0" ]; then HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || HERE=""; fi
 
   get_python
   get_lithify
