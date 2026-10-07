@@ -106,9 +106,10 @@ class SignalTest(unittest.TestCase):
     def test_sigterm_ends_a_command_like_ctrl_c_and_lets_it_clean_up(self):
         with tempfile.TemporaryDirectory() as d:
             marker = Path(d) / "cleaned"
+            # ("ready" inside the try: the signal may come before the next line runs)
             code = ("import pathlib, sys, time; sys.path.insert(0, sys.argv[1]); from lithify import cli\n"
-                    "cli.stop_like_ctrl_c()\nprint('ready', flush=True)\n"
-                    "try:\n    time.sleep(30)\n"
+                    "cli.stop_like_ctrl_c()\n"
+                    "try:\n    print('ready', flush=True)\n    time.sleep(30)\n"
                     "except KeyboardInterrupt:\n"
                     "    time.sleep(0.5)  # stopping containers: a second SIGTERM must not cut this short\n"
                     "    pathlib.Path(sys.argv[2]).write_text('cleaned up')\n")
