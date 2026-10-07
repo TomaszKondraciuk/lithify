@@ -1,0 +1,16 @@
+--- a/src/address_family.rs
++++ b/src/address_family.rs
+@@ -29,8 +29,12 @@
+         socket.set_reuse_address(true)?;
+         socket.set_nonblocking(true)?;
+ 
++        // Linux < 3.9 has no SO_REUSEPORT (ENOPROTOOPT); SO_REUSEADDR alone is enough to
++        // share UDP 5353 with the other mDNS responders there, so don't fail the bind on it.
+         #[cfg(all(unix, not(any(target_os = "solaris", target_os = "illumos"))))]
+-        socket.set_reuse_port(true)?;
++        if let Err(e) = socket.set_reuse_port(true) {
++            log::debug!("SO_REUSEPORT unavailable, relying on SO_REUSEADDR: {}", e);
++        }
+ 
+         socket.bind(&addr)?;
+         Self::join_multicast(&socket, &Self::MDNS_GROUP)?;

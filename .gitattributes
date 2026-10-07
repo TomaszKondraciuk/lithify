@@ -1,0 +1,9 @@
+# Every text file keeps LF line endings, also in a Windows checkout: the speaker's shell runs the
+# device scripts, and the build hashes and patches files byte by byte.
+* text=auto eol=lf
+# ...except what cmd.exe runs: it reads batch files with CRLF reliably (labels, long lines).
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.patch -text
+*.png binary
+*.ico binary

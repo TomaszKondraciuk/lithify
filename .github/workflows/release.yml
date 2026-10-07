@@ -1,0 +1,28 @@
+# On a version tag: run the tests, build the speaker bundle and publish it as release assets,
+# so `lithify fetch --url https://github.com/<owner>/lithify/releases/latest/download` works
+# without Docker.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tests
+        run: python -m unittest discover -s tests -t .
+      - name: Build the bundle
+        run: python bin/lithify build
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd ~/.cache/lithify/bundle
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Lithify $GITHUB_REF_NAME" \
+            --notes-file VERSIONS librespot lithify-agent alsa.tar VERSIONS SHA256SUMS

@@ -1,0 +1,84 @@
+# Cases both test suites run against agent/rules.tsv and agent/settings.tsv (the agent's
+# settings.rs and the lithify command's config.py must agree on every one).
+# Columns are separated by TABS. In values \s is a space, \n a line break, \\ a backslash, "" the
+# empty value; <refused> means the value must be refused.
+#   value     <setting>  <input>  <stored value or <refused>>
+#   conflict  <settings, as key=value with spaces between>  <the settings named in the conflict>
+
+value	name	Łazienka (librespot)	Łazienka (librespot)
+value	name	""	<refused>
+value	name	two\nlines	<refused>
+value	name	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+value	name	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx	<refused>
+value	bitrate	\s160\s	160
+value	bitrate	128	<refused>
+value	mixer	ALSA	alsa
+value	normalisation	Yes	true
+value	normalisation	off	false
+value	normalisation	""	false
+value	normalisation	maybe	<refused>
+value	initial_volume	""	current
+value	initial_volume	Current	current
+value	initial_volume	40	40
+value	initial_volume	101	<refused>
+value	initial_volume	4o	<refused>
+value	autoplay	""	""
+value	autoplay	on	on
+value	device	plughw:0,0	plughw:0,0
+value	device	plughw:0,0;\sreboot	<refused>
+value	mixer_control	Master	Master
+value	mixer_control	Line\sOut	Line Out
+value	mixer_control	Mas*ter	<refused>
+value	zeroconf_port	4070	4070
+value	zeroconf_port	80	<refused>
+value	ui_port	65535	65535
+value	ui_port	65536	<refused>
+value	ui_pin	""	""
+value	ui_pin	2468	2468
+value	ui_pin	12	<refused>
+value	ui_pin	12ab	<refused>
+value	ui_pin	1234567890123	<refused>
+value	wifi_scancfg	1\s2\s3	1 2 3
+value	wifi_scancfg	1;reboot	<refused>
+value	fastfail_hosts	a.example,\sb.example\nc.example	a.example b.example c.example
+value	fastfail_hosts	bad\shost;reboot	<refused>
+value	fastfail_hosts	-dash.example	<refused>
+value	fastfail_routes	199.232.0.0/16\s151.101.2.248	199.232.0.0/16 151.101.2.248
+value	fastfail_routes	199.232.1.2/16	199.232.1.2/16
+value	fastfail_routes	199.232.0.0/33	<refused>
+value	fastfail_routes	199.232.0.0/	<refused>
+value	fastfail_routes	1.2.3.4/+16	<refused>
+value	fastfail_routes	01.2.3.4	<refused>
+value	fastfail_routes	2a04:4e42::/32	<refused>
+value	fastfail_routes	0.0.0.0/0	<refused>
+value	fastfail_routes	1.0.0.0/7	<refused>
+value	fastfail_routes	10.1.2.3	<refused>
+value	fastfail_routes	100.64.0.1	<refused>
+value	fastfail_routes	127.0.0.1	<refused>
+value	fastfail_routes	169.254.1.1	<refused>
+value	fastfail_routes	172.20.0.0/16	<refused>
+value	fastfail_routes	192.168.1.1	<refused>
+value	fastfail_routes	224.0.0.251	<refused>
+value	fastfail_routes	255.255.255.255	<refused>
+value	extra_args	--ap-port\s443\s--dither=none	--ap-port 443 --dither=none
+value	extra_args	--normalisation-pregain\s-3	--normalisation-pregain -3
+value	extra_args	-q\s-v	-q -v
+value	extra_args	--name\sx	<refused>
+value	extra_args	--bitrate=96	<refused>
+value	extra_args	-b\s96	<refused>
+value	extra_args	-qn\sx	<refused>
+value	extra_args	--tmp\s/data/x	<refused>
+value	extra_args	--tmp=/data/x	<refused>
+value	extra_args	-t\s/data/x	<refused>
+value	extra_args	-qt\s/data/x	<refused>
+value	extra_args	--help	<refused>
+value	extra_args	-h	<refused>
+value	extra_args	--version	<refused>
+value	extra_args	-V	<refused>
+value	spin_threshold_pct	29	<refused>
+value	spin_threshold_pct	85	85
+value	silent_start_action	Next	next
+
+conflict	ui_port=4070	zeroconf_port
+conflict	ui_port=8008\szeroconf_port=9095	ui_port\szeroconf_port
+conflict	ui_port=8091	""

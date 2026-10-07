@@ -1,0 +1,17 @@
+# Template of the user service `lithify serve --install-service` writes to
+# ~/.config/systemd/user/lithify-companion.service. Adjust the paths if you install it by hand:
+#   systemctl --user daemon-reload && systemctl --user enable --now lithify-companion
+[Unit]
+Description=Lithify companion (builds and serves updates for the speaker web page)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/share/lithify/bin/lithify serve
+WorkingDirectory=%h/.local/share/lithify
+Environment=LITHIFY_CONFIG=%h/.config/lithify/config.toml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

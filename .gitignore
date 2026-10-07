@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+/config.toml
+*.toml.*.bak
+*.log
+agent/target/
+/dist/
+# never in the repository: secrets, keys, editor and system files
+.env
+.env.*
+*.pem
+*.key
+credentials*.json
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

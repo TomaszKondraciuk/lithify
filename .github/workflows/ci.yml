@@ -1,0 +1,81 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  python:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.11" }
+          - { os: ubuntu-latest, python: "3.14" }
+          - { os: windows-latest, python: "3.11" }
+          - { os: macos-latest, python: "3.11" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Ruff (pinned, so a new release with new rules cannot break the build)
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
+        run: |
+          pip install ruff==0.16.10
+          ruff check lithify tests bin/lithify
+      - name: Python tests
+        run: python -m unittest discover -s tests -t . -v
+
+  installers:
+    # The installers on the real systems, up to the `lithify` command (no speaker, no Docker).
+    name: Installer on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: install.sh installs the command
+        if: runner.os != 'Windows'
+        env:
+          LITHIFY_NO_SETUP: "1"
+          LITHIFY_YES: "1"
+          LITHIFY_BIN: ${{ runner.temp }}/bin
+        run: |
+          sh -n install.sh
+          sh ./install.sh
+          "$LITHIFY_BIN/lithify" --help
+      - name: install.ps1 installs the command
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          LITHIFY_NO_SETUP: "1"
+          LITHIFY_YES: "1"
+        run: |
+          .\install.ps1
+          & "$env:LOCALAPPDATA\lithify\bin\lithify.cmd" --help
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+  agent:
+    name: Agent (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Agent tests
+        working-directory: agent
+        run: cargo test --locked
+
+  shell:
+    name: Speaker scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        run: for f in device/*/*.sh; do sh -n "$f"; done

@@ -1,0 +1,39 @@
+# Lithify speaker settings – one line per option. Read by lithify-agent (Rust, embedded) and by the
+# lithify command (Python), so both validate and default exactly the same way.
+#
+# columns: key  section  type  default  rule  group  restart      ("-" = empty)
+#   type:    text | int | bool | choice | volume ("current" or a number) | list (space-separated)
+#   rule:    int/volume: MIN-MAX; choice: a|b|c ("-" = the empty choice); text and list: a check name
+#            (name, alsa, control, pin, digits; host, ipv4net, arg)
+#   group:   where the web page shows it (basic, network, page, advanced, hidden)
+#   restart: what restarts when it changes (librespot or agent)
+name                     speaker    text    -           name                          basic     librespot
+bitrate                  librespot  choice  320         96|160|320                    basic     librespot
+mixer                    librespot  choice  alsa        alsa|softvol                  basic     librespot
+volume_ctrl              librespot  choice  linear      linear|log|cubic|fixed        basic     librespot
+initial_volume           librespot  volume  current     0-100                         basic     librespot
+normalisation            librespot  bool    false       -                             basic     librespot
+autoplay                 librespot  choice  -           -|on|off                      basic     librespot
+device_type              librespot  choice  speaker     speaker|avr|tv|computer|audiodongle|stb|castaudio|castvideo|tablet|smartphone|gameconsole|automobile|smartwatch|chromebook|carthing  basic  librespot
+hide_official_spotify    agent      bool    false       -                             basic     agent
+backend                  librespot  choice  alsa        alsa                          advanced  librespot
+device                   librespot  text    plughw:0,0  alsa                          advanced  librespot
+format                   librespot  choice  S16         S16|S24|S24_3|S32|F32|F64     advanced  librespot
+mixer_device             librespot  text    hw:0        alsa                          advanced  librespot
+mixer_control            librespot  text    Master      control                       advanced  librespot
+zeroconf_port            librespot  int     4070        1024-65535                    advanced  librespot
+extra_args               librespot  list    -           arg                           advanced  librespot
+ui                       agent      bool    true        -                             hidden    agent
+ui_port                  agent      int     8090        1024-65535                    page      agent
+ui_pin                   agent      text    -           pin                           page      agent
+fastfail_hosts           agent      list    -           host                          network   agent
+fastfail_routes          agent      list    -           ipv4net                       network   agent
+spin_threshold_pct       agent      int     85          30-100                        advanced  agent
+spin_seconds             agent      int     60          20-3600                       advanced  agent
+spin_cooldown_seconds    agent      int     600         0-86400                       advanced  agent
+respawn_official_spotify agent      bool    true        -                             advanced  agent
+respawn_grace_seconds    agent      int     120         30-3600                       advanced  agent
+silent_start_seconds     agent      int     8           3-600                         advanced  agent
+silent_start_action      agent      choice  log         log|pause_resume|next|seek0   advanced  agent
+conflict_stop_librespot  agent      bool    true        -                             advanced  agent
+wifi_scancfg             agent      text    -           digits                        advanced  agent

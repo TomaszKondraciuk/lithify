@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""Run Lithify from its checkout (install.sh links this file into ~/.local/bin)."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from lithify.cli import main
+
+raise SystemExit(main())

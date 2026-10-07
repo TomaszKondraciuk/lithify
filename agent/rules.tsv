@@ -1,0 +1,86 @@
+# Every rule the speaker's settings are checked against, and the messages for values that break
+# them. Read by lithify-agent (embedded) and by the lithify command, so the speaker and the computer
+# accept and refuse exactly the same values; both test suites run the cases in settings-cases.tsv.
+#
+# Columns are separated by TABS. Kinds of lines:
+#   message  <name>  <text>        what a refused value says; {value} {min} {max} {choices} {option}
+#                                  {port} are filled in
+#   list     <max>                 at most this many entries in a list setting
+#   text     <rule>  <min>  <max>  <chars>  <flags>  <message>
+#            a text value, or each entry of a list: <min>-<max> characters, each one of <chars> -
+#            a class like A-Za-z0-9_- (\s is a space, \\ a backslash; * = anything but a control
+#            character). <flags>: - or a comma list of empty-ok (the empty value is fine too),
+#            no-leading-dash, no-space, not-reserved (none of the librespot options below)
+#   network  <rule>  <min prefix>  an IPv4 address or network: at least /<min prefix>, and none of
+#                                  the networks below (a fail-fast route there would cut the
+#                                  speaker off its own network)
+#   never    <network>             never gets a fail-fast route
+#   reserved <long>  <short>       a librespot option the agent passes itself, or one that stops
+#                                  librespot at once: extra arguments must not repeat it
+#   port     <number>  <service>   a port the speaker's own services use
+
+message	bool	expected yes or no
+message	number	expected a whole number
+message	range	expected {min}-{max}
+message	choice	expected one of: {choices}
+message	none	(none)
+message	unknown	unknown setting
+message	entries	at most {max} entries
+message	entry	"{value}": {message}
+message	reserved	"{value}": --{option} is set by the agent (use its setting)
+message	network	"{value}": not an IPv4 address or network
+message	prefix	"{value}": too large a network (/{min} at most)
+message	never	"{value}": a local or special address range
+message	port	port {port} belongs to the speaker's own services
+message	same-port	the web page uses this port
+
+list	32
+
+text	name	1	64	*	-	1-64 characters
+text	alsa	1	64	A-Za-z0-9_:,.=-	-	letters, digits and _:,.=-
+text	control	1	32	A-Za-z0-9\s_-	-	letters, digits, spaces, _ and -
+text	pin	4	12	0-9	empty-ok	empty, or 4-12 digits
+text	digits	0	64	0-9\s	-	digits and spaces
+text	host	1	253	A-Za-z0-9.-	no-leading-dash	a host name
+text	arg	1	128	*	no-space,not-reserved	one librespot option or value
+network	ipv4net	8
+
+# No CDN is there, and a route over any of these could cut the speaker off its own network.
+never	0.0.0.0/8
+never	10.0.0.0/8
+never	100.64.0.0/10
+never	127.0.0.0/8
+never	169.254.0.0/16
+never	172.16.0.0/12
+never	192.168.0.0/16
+never	224.0.0.0/3
+
+reserved	name	n
+reserved	device-type	F
+reserved	backend	B
+reserved	device	d
+reserved	format	f
+reserved	bitrate	b
+reserved	mixer	m
+reserved	volume-ctrl	E
+reserved	alsa-mixer-device	S
+reserved	alsa-mixer-control	T
+reserved	alsa-mixer-index	s
+reserved	initial-volume	R
+reserved	autoplay	A
+reserved	cache	c
+reserved	tmp	t
+reserved	zeroconf-port	z
+reserved	onevent	o
+reserved	enable-volume-normalisation	N
+reserved	disable-audio-cache	G
+reserved	emit-sink-events	Q
+reserved	help	h
+reserved	version	V
+
+port	7000	AirPlay
+port	7777	LUCI (Libre control)
+port	8008	Cast
+port	8009	Cast
+port	8443	Cast
+port	9095	official Spotify (zeroconf)

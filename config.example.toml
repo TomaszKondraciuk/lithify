@@ -1,0 +1,52 @@
+# Lithify configuration – copy to ~/.config/lithify/config.toml (or run `lithify setup`).
+# Every option below shows its default; delete what you don't change.
+# Reference: docs/configuration.md
+
+# ── settings for every speaker ──────────────────────────────────────────────
+[defaults.librespot]
+bitrate = 320                 # 96 | 160 | 320 kbit/s
+device_type = "speaker"       # icon in Spotify
+backend = "alsa"
+device = "plughw:0,0"         # ALSA output
+format = "S16"                # the longest buffer here (371 ms; 185 ms with S24/S32)
+mixer = "alsa"                # "alsa": Spotify slider = speaker volume (recommended) | "softvol"
+mixer_device = "hw:0"
+mixer_control = "Master"
+volume_ctrl = "linear"        # linear | log | cubic | fixed
+initial_volume = "current"    # "current" or 0..100
+normalisation = false
+autoplay = ""                 # "" (follow the app) | "on" | "off"
+zeroconf_port = 4070
+extra_args = []               # more librespot arguments, appended as given
+
+[defaults.agent]
+ui = true                     # web page on the speaker
+ui_port = 8090
+ui_pin = ""                   # PIN for actions on the web page; "" = none
+fastfail_hosts = []           # CDN hosts your network can't reach, e.g. ["audio-fa.scdn.co"]
+fastfail_routes = []          # the same for prefixes, e.g. ["199.232.0.0/16"]
+spin_threshold_pct = 85       # restart the official Spotify client when a thread uses this much CPU…
+spin_seconds = 60             # …for this long
+spin_cooldown_seconds = 600
+respawn_official_spotify = true
+respawn_grace_seconds = 120
+hide_official_spotify = false  # keep the official Spotify device hidden while librespot works
+silent_start_seconds = 8
+silent_start_action = "log"   # log | pause_resume | next | seek0
+conflict_stop_librespot = true
+wifi_scancfg = ""
+
+# ── the update helper on this computer (`lithify serve`) ────────────────────
+[companion]
+listen = "auto"               # "auto" = this computer's LAN address, port 8095; or "IP:PORT"
+url = ""                      # address the speakers use, when different from `listen`
+
+# ── one block per speaker ───────────────────────────────────────────────────
+[[speakers]]
+id = "living-room"            # lowercase letters, digits, '-'
+host = "192.168.1.40"         # IP address or host name
+name = "Living room"          # shown in Spotify Connect
+# platform = "auto"
+
+# [speakers.librespot]        # per-speaker overrides
+# bitrate = 160

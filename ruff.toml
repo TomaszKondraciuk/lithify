@@ -1,0 +1,19 @@
+# Ruff for Lithify's Python: `ruff check lithify tests` (CI pins ruff's version, so a new release
+# with new rules cannot break a build).
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = ["E", "F", "W", "B", "UP", "SIM", "RUF", "BLE", "C4", "PERF", "I", "N", "S", "G"]
+ignore = [
+    # Lithify runs git, docker, netsh, systemctl, launchctl and schtasks by design, always with an
+    # argument list and never through a shell; they are found on PATH, which is how users install them.
+    "S603",
+    "S607",
+    # Executables and service files need their modes.
+    "S103",
+    # The /tmp paths in the code are on the speaker, not in this computer's temporary directory.
+    "S108",
+    # `listen = "0.0.0.0"` is the user's explicit choice.
+    "S104",
+]

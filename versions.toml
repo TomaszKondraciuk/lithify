@@ -1,0 +1,30 @@
+# Build pins for the Lithify bundle (`lithify build`, CI). Bump a value, then rebuild.
+# `lithify check-updates` reports newer upstream releases.
+
+[librespot]
+repo = "https://github.com/librespot-org/librespot.git"
+# librespot's development branch: its releases come about once a year, its fixes every few weeks.
+# `commit` is the one this Lithify was built and tested with; "update everything" on the web page
+# (`lithify build --latest`) moves on to the branch's newest commit.
+ref = "dev"
+commit = "e023adbbf017ae1fc10d01531dbe50c409786f2d"
+# Our own changes (build/patches/<name>.patch), applied on top; one librespot has taken in by
+# then is skipped by itself.
+#   autoplay-refills  autoplay keeps going after its first batch of tracks (librespot PR #1782)
+local_patches = ["autoplay-refills"]
+features = ["rustls-tls-webpki-roots", "alsa-backend", "with-libmdns"]
+# Refresh every dependency to its newest semver-compatible release at build time.
+update_deps = true
+
+[alsa_lib]
+version = "1.2.16.1"
+
+[rust]
+toolchain = "1.99.0"
+# Cross toolchain image (armv7 musl gcc); the Rust release above is installed into it.
+builder_base = "ghcr.io/rust-cross/rust-musl-cross:armv7-musleabihf"
+
+[release]
+# Where `lithify fetch` downloads a prebuilt bundle, e.g.
+# "https://github.com/<owner>/lithify/releases/latest/download". Empty: build locally.
+url = ""
