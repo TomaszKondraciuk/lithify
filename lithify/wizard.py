@@ -83,10 +83,16 @@ _PHASE_STARTS = (
     ("restart", ("the Cast service list changed", "restarting librespot")),
     ("check", ("speaker back after", "removed the old install", "companion running")),
 )
-# The build's own steps, and how far along each one is: compiling librespot takes most of the time.
-_BUILD_STEPS = (("builder image", "image", 0.05), ("librespot: ", "reuse", 0.7), ("librespot ", "source", 0.1),
-                ("compiling librespot", "compile", 0.2), ("lithify-agent", "agent", 0.8),
-                ("bundle ready", None, 1.0), ("bundle", "bundle", 0.95))
+# The build's own steps, and how far along each one is: a first build spends most of its time on
+# the builder image and on compiling librespot (a later one reuses both).
+_BUILD_STEPS = (("builder image", "image", 0.02), ("librespot: ", "reuse", 0.85), ("librespot ", "source", 0.3),
+                ("compiling librespot", "compile", 0.35), ("lithify-agent", "agent", 0.88),
+                ("bundle ready", None, 1.0), ("bundle", "bundle", 0.97))
+# How far a long step has come (bundle.docker_steps, bundle.crates_compiled), and the part of the
+# bar it moves through: the builder image up to its next step, librespot's crates likewise.
+_STEP_NOTE = re.compile(r" {4}(?:builder image: step (\d+) of (\d+)|crates compiled: (\d+))")
+_STEP_SPAN = {"image": (0.02, 0.3), "compile": (0.35, 0.85)}
+LIBRESPOT_CRATES = 240  # about how many crates a librespot build compiles
 # Why an installation failed, from what it printed: the first match wins (so a speaker's failed
 # download, which also says "Connection refused", is the firewall, not an unreachable speaker).
 _ERRORS = (
@@ -437,13 +443,26 @@ class Task:
     def add(self, line: str, now: float) -> None:
         self.lines.append(line)
         self.count += 1
-        if self.kind != "install" or not line.startswith("==> "):
+        if self.kind != "install":
+            return
+        if self.phase == "build" and (m := _STEP_NOTE.fullmatch(line)):
+            self._advance(m)
+        if not line.startswith("==> "):
             return
         nxt = phase_of(line, self.phase)
         if nxt:
             self.enter(nxt, now)
         if self.phase == "build" and (step := build_step(line[4:])):
             self.step, self.progress = step
+
+    def _advance(self, m: re.Match) -> None:
+        """A long step has come further: the bar moves within that step's part (never back)."""
+        span = _STEP_SPAN.get(self.step or "")
+        if span is None or bool(m[1]) != (self.step == "image"):
+            return
+        done = (int(m[1]) - 1) / max(1, int(m[2])) if m[1] else int(m[3]) / LIBRESPOT_CRATES  # (step k begins)
+        low, high = span
+        self.progress = max(self.progress or low, low + (high - low) * min(done, 0.98))
 
     def end(self, ok: bool, now: float, key: str | None, detail: str, params: dict, more: dict) -> None:
         self.finished, self.ok, self.ended = True, ok, now

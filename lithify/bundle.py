@@ -15,6 +15,7 @@ import sys
 import threading
 import tomllib
 import urllib.request
+from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
@@ -86,6 +87,40 @@ def bundle_lock(cache: Path, shared: bool = True, timeout: float | None = 60.0):
 
 def say(msg: str) -> None:
     print(f"==> {msg}", flush=True)
+
+
+# How far a long command has come, as an indented line for the person waiting: `lithify install`
+# prints it, and the wizard moves its progress bar by it (wizard.Task.add).
+Progress = Callable[[str], str | None]
+_DOCKER_STEP = re.compile(r"#\d+ \[(?:[^\]]* )?(\d+)/(\d+)\] |Step (\d+)/(\d+) : ")
+_COMPILING = re.compile(r"\s+Compiling \S+ v")
+
+
+def docker_steps() -> Progress:
+    """The steps of `docker build` as they begin (BuildKit's plain output, or the classic builder's)."""
+    seen: set[tuple[str, str]] = set()
+
+    def note(line: str) -> str | None:
+        m = _DOCKER_STEP.match(line)
+        step = (m[1] or m[3], m[2] or m[4]) if m else None
+        if step is None or step in seen:
+            return None
+        seen.add(step)
+        return f"builder image: step {step[0]} of {step[1]}"
+    return note
+
+
+def crates_compiled(every: int = 10) -> Progress:
+    """Every `every` crates cargo begins to compile."""
+    count = 0
+
+    def note(line: str) -> str | None:
+        nonlocal count
+        if not _COMPILING.match(line):
+            return None
+        count += 1
+        return f"crates compiled: {count}" if count % every == 0 else None
+    return note
 
 
 def version_key(v: str) -> tuple:
@@ -182,9 +217,10 @@ def image_tag(pins: dict) -> str:
 
 
 def sh(cmd: list, log: Path | None = None, check: bool = True, timeout: float | None = None,
-       env: dict | None = None) -> subprocess.CompletedProcess:
+       env: dict | None = None, progress: Progress | None = None) -> subprocess.CompletedProcess:
     """Run a command. With `log`, its output goes there line by line as it comes (the web page
-    shows the log's tail during a long compile). A command still running after `timeout` is
+    shows the log's tail during a long compile), and `progress` picks from it the lines printed
+    for the person waiting. A command still running after `timeout` is
     stopped together with everything it started and its container; failures are BuildError
     (with `check`). Nothing here waits for a person: no input, and git never asks for a password."""
     cmd = [str(c) for c in cmd]
@@ -195,7 +231,8 @@ def sh(cmd: list, log: Path | None = None, check: bool = True, timeout: float | 
         cmd = [*cmd[:2], "--name", container, "--label", f"{BUILD_LABEL}={_owner()}", *cmd[2:]]
     full_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", **(env or {})}
     try:
-        r = _run_logged(cmd, log, limit, full_env, container) if log else _run_captured(cmd, limit, full_env, container)
+        r = (_run_logged(cmd, log, limit, full_env, container, progress) if log
+             else _run_captured(cmd, limit, full_env, container))
     except subprocess.TimeoutExpired:
         _stop(container)
         if check:
@@ -251,8 +288,8 @@ def _run_captured(cmd: list[str], limit: float, env: dict, container: str | None
     return subprocess.CompletedProcess(cmd, p.returncode, out, err)
 
 
-def _run_logged(cmd: list[str], log: Path, limit: float, env: dict,
-                container: str | None) -> subprocess.CompletedProcess:
+def _run_logged(cmd: list[str], log: Path, limit: float, env: dict, container: str | None,
+                progress: Progress | None = None) -> subprocess.CompletedProcess:
     fired = threading.Event()
     with log.open("a", encoding="utf-8") as f:
         f.write(f"$ {' '.join(cmd)}\n")
@@ -271,6 +308,8 @@ def _run_logged(cmd: list[str], log: Path, limit: float, env: dict,
                 out.append(line)
                 f.write(line)
                 f.flush()
+                if progress and (note := progress(line)):
+                    print(f"    {note}", flush=True)
             rc = p.wait()
         except BaseException:
             hostos.kill_tree(p)
@@ -525,10 +564,12 @@ def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
     log.write_text(f"lithify build {datetime.now(UTC).isoformat()}\n", encoding="utf-8")
     img = image_tag(pins)
     say(f"builder image {img}")
-    sh(["docker", "build", "-q", "--build-arg", f"BASE={pins['rust']['builder_base']}",
+    # (Its steps go to the log as they run: a first build of the image takes minutes.)
+    sh(["docker", "build", "--build-arg", f"BASE={pins['rust']['builder_base']}",
         "--build-arg", f"ALSA_VER={pins['alsa_lib']['version']}",
         "--build-arg", f"ALSA_CONFIG_DIR={platforms.LS9.base}/alsa",
-        "--build-arg", f"RUST_TOOLCHAIN={pins['rust']['toolchain']}", "-t", img, root / "build"], log, timeout=3600)
+        "--build-arg", f"RUST_TOOLCHAIN={pins['rust']['toolchain']}", "-t", img, root / "build"], log, timeout=3600,
+       env={"BUILDKIT_PROGRESS": "plain"}, progress=docker_steps())
     # (`rustc -vV` begins with the line `rustc --version` prints, so the stamps stay the same.)
     rustc_vv = sh(["docker", "run", "--rm", img, "rustc", "-vV"]).stdout
     rustc = rustc_vv.splitlines()[0].strip() if rustc_vv.strip() else ""
@@ -611,7 +652,7 @@ def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
         stamp_file.unlink(missing_ok=True)
         say("compiling librespot (armv7, static, NEON)")
         sh([*run, "env", *LIBRESPOT_ENV, "cargo", "build", "--release", "--no-default-features",
-            "--features", ",".join(lp["features"])], log, timeout=3600)
+            "--features", ",".join(lp["features"])], log, timeout=3600, progress=crates_compiled())
         # Out of the volume: the next build reuses it from here.
         sh([*docker_run(img, [(target, "/target", True), (cache / "out", "/out")]),
             "cp", f"/target/{TARGET}/release/librespot", "/out/librespot"], log)

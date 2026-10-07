@@ -269,6 +269,24 @@ class CommandTest(unittest.TestCase):
             self.assertIn("compiling\ndone\n", log.read_text(encoding="utf-8"))
             self.assertEqual(bundle.sh([sys.executable, "-c", "print('quick')"]).stdout, "quick\n")
 
+    def test_a_long_command_tells_how_far_it_has_come(self):
+        lines = ["#1 [internal] load build definition from Dockerfile", "#5 [1/3] FROM docker.io/x/y:1",
+                 "#5 DONE 30.2s", "#6 [2/3] RUN apt-get update", "#6 0.312 Get:1 http://deb.debian.org",
+                 "#6 [2/3] RUN apt-get update", "#7 [3/3] RUN rustup toolchain install"]
+        steps = bundle.docker_steps()
+        self.assertEqual([n for n in map(steps, lines) if n],
+                         ["builder image: step 1 of 3", "builder image: step 2 of 3", "builder image: step 3 of 3"])
+        classic = bundle.docker_steps()
+        self.assertEqual(classic("Step 2/7 : RUN apt-get update"), "builder image: step 2 of 7")
+        crates = bundle.crates_compiled(every=2)
+        said = [crates(f"   Compiling crate{i} v1.0.{i}") for i in range(1, 6)]
+        self.assertEqual(said, [None, "crates compiled: 2", None, "crates compiled: 4", None])
+        self.assertIsNone(crates("    Finished `release` profile"))
+        with tempfile.TemporaryDirectory() as d, mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            code = "print('#5 [1/2] FROM x'); print('#5 DONE'); print('#6 [2/2] RUN make')"
+            bundle.sh([sys.executable, "-c", code], log=Path(d) / "build.log", progress=bundle.docker_steps())
+        self.assertEqual(out.getvalue(), "    builder image: step 1 of 2\n    builder image: step 2 of 2\n")
+
     def test_a_log_that_cannot_be_written_stops_the_container_and_says_why(self):
         started, stopped = [], []
         real_start = bundle._start
