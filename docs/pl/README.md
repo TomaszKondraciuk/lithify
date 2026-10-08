@@ -5,16 +5,16 @@
   <img src="../images/logo-light.svg" alt="Lithify" width="240">
 </picture>
 
-**Niezawodny Spotify Connect dla głośników Lithe Audio Wi-Fi.**
+**Spotify Connect dla głośników Wi-Fi Lithe Audio, oparty na librespot.**
 
-[Instalacja](#instalacja) · [Co dostajesz](#co-dostajesz) · [Pytania](#pytania) · [Dokumentacja](#dokumentacja) · [English](../../README.md)
+[Instalacja](#instalacja) · [Ograniczenia](#ograniczenia-i-ryzyko) · [Pytania](#pytania) · [Dokumentacja](#dokumentacja) · [English](../../README.md)
 
 </div>
 
 Lithify instaluje na głośnikach sufitowych Lithe Audio [librespot](https://github.com/librespot-org/librespot),
-otwartego klienta Spotify Connect. Działa obok oryginalnego oprogramowania głośnika i instaluje
-się z dowolnego komputera w kilka kliknięć. Niczego nie flashuje, a jedno polecenie usuwa go w
-całości.
+otwartego klienta Spotify Connect. Działa obok oprogramowania głośnika: firmware zostaje bez
+zmian, a Google Cast, AirPlay i wbudowany Spotify działają dalej. Instalujesz go z komputera z
+Windowsem, macOS albo Linuksem w tej samej sieci.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/speaker-page-pl-dark.png">
@@ -24,32 +24,29 @@ całości.
 ## Po co
 
 Klient Spotify wbudowany w głośniki Lithe Audio na platformie LS9 pochodzi z 2021 roku, a
-ostatni firmware ukazał się w 2024. Potrafi zacząć utwór i nic nie zagrać, reaguje z opóźnieniem
-na pauzę i przewijanie, a do tego potrafi przez wiele dni obciążać rdzeń procesora. Lithify daje
-każdemu głośnikowi drugie, aktualne urządzenie Spotify Connect, które po prostu gra, i dba o jego
-aktualizacje.
+ostatnia aktualizacja firmware ukazała się w 2024. Na naszych głośnikach często zaczynał utwór i
+nic nie grał, z opóźnieniem reagował na pauzę i przewijanie, a raz przez kilka dni obciążał rdzeń
+procesora. librespot jest rozwijany i dostaje poprawki co kilka tygodni; Lithify instaluje go na
+głośniku i dba o jego aktualizacje.
 
 ## Co dostajesz
 
-- **Stabilne odtwarzanie.** librespot 0.8 z poprawkami z głównego projektu, zbudowany pod
-  procesor głośnika (Cortex-A7).
-- **Prawdziwa głośność.** Suwak w Spotify zmienia tę samą głośność co Google Cast i AirPlay.
-- **Bez flashowania.** Firmware, Cast, AirPlay i oficjalny Spotify zostają. `lithify uninstall`
-  przywraca fabryczny stan głośnika.
-- **Strona na każdym głośniku.** Stan, ustawienia, testy połączeń i logi pod
-  `http://<głośnik>:8090`, po polsku i po angielsku.
-- **Aktualizacje jednym kliknięciem.** Komputer pobiera każde nowe wydanie, a głośnik je
-  instaluje, zachowuje swoje ustawienia i w razie potrzeby wraca do poprzedniej wersji.
-- **Strażnik.** Gdy oficjalny klient Spotify się zawiesza, uruchamia go ponownie, a gdy zaczyna
-  grać Cast albo AirPlay, oddaje im głośnik.
+- **Drugie urządzenie Spotify na każdym głośniku**, z librespot zbudowanym pod procesor głośnika.
+- **Głośność samego głośnika.** Suwak w Spotify zmienia tę samą głośność co Google Cast i AirPlay.
+- **Stronę WWW na każdym głośniku** pod `http://<głośnik>:8090`, po polsku i po angielsku: stan,
+  ustawienia, testy połączeń, logi, aktualizacje i przywracanie poprzedniej wersji.
+- **Aktualizacje jednym przyciskiem** na tej stronie albo przez ponowne uruchomienie instalatora.
+  Gdy nowa wersja sprawia kłopoty, poprzednią przywrócisz jednym kliknięciem.
+- **Opiekę nad wbudowanym Spotify.** Lithify uruchamia go ponownie, gdy się zawiesi albo padnie,
+  i zatrzymuje librespot, gdy zaczyna grać Cast, AirPlay albo Bluetooth.
 
 ## Instalacja
 
 Potrzebujesz:
 
-- [obsługiwanego głośnika](#obsługiwane-głośniki);
-- konta **Spotify Premium** (librespot nie działa z darmowymi kontami);
-- komputera z Windowsem, macOS albo Linuksem w tej samej sieci.
+- obsługiwanego głośnika, zobacz [Obsługiwane głośniki](#obsługiwane-głośniki);
+- konta **Spotify Premium**, bo librespot nie działa z darmowymi kontami;
+- komputera w tej samej sieci co głośnik: Windows 10 lub 11, macOS albo Linux.
 
 **Windows:** pobierz [**Lithify-Windows.cmd**](https://github.com/OWNER/lithify/releases/latest/download/Lithify-Windows.cmd) i kliknij go dwukrotnie.
 
@@ -65,32 +62,45 @@ curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/instal
 wget -qO- https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
 ```
 
-Instalator raz pyta, zanim cokolwiek zmieni, a potem otwiera w przeglądarce kreator Lithify.
-Kreator sam znajduje głośnik. Kliknij **Zainstaluj**, a po kilku minutach wybierz
-*Kuchnia (librespot)* z listy urządzeń w Spotify.
+Co dalej:
+
+1. Instalator pokazuje, co doda do komputera, i raz prosi o zgodę.
+2. Otwiera w przeglądarce kreator Lithify, który sam znajduje głośnik.
+3. Klikasz **Zainstaluj**. Zwykle trwa to kilka minut; głośnik przez około minutę milczy, bo się
+   uruchamia ponownie.
+
+Jeśli komputer nie może pobrać gotowego wydania, instalator zbuduje Lithify sam. Potrzebny jest
+wtedy Docker i około 4 GB wolnej pamięci, a pierwsze budowanie trwa do godziny.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/wizard-pl-dark.png">
   <img src="../images/wizard-pl-light.png" alt="Kreator Lithify: znaleziony głośnik, jego nazwa w Spotify i przycisk Zainstaluj" width="720">
 </picture>
 
+**Sprawdź, czy działa:** otwórz Spotify na telefonie, dotknij ikony urządzeń i wybierz
+*Kuchnia (librespot)*, czyli nazwę swojego głośnika z dopiskiem „(librespot)”. Nazwę zmienisz na
+stronie głośnika w *Ustawieniach*.
+
 <details>
-<summary>Pytania, które może zadać system, i inne sposoby instalacji</summary>
+<summary>Pytania systemu, przejrzenie skryptu i inne sposoby instalacji</summary>
 
-- **Windows** raz pyta, czy uruchomić plik: *Uruchom* albo *Więcej informacji → Uruchom mimo to*.
-  Drugi raz prosi o zgodę na regułę zapory, żeby głośnik mógł pobrać oprogramowanie z komputera:
-  *Tak*. To samo w PowerShellu:
-  `irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex`
+- **Windows** raz pyta, czy uruchomić plik: kliknij *Uruchom* albo *Więcej informacji → Uruchom
+  mimo to*. Potem prosi o zgodę na regułę zapory, żeby głośnik mógł pobrać oprogramowanie z
+  komputera: kliknij *Tak*.
 - **macOS:** jeśli zapora jest włączona, pyta, czy Python może przyjmować połączenia
-  przychodzące: *Pozwól*. Instalacja dwuklikiem: **Lithify-macOS.zip** z
+  przychodzące: kliknij *Pozwól*. Instalacja dwuklikiem: **Lithify-macOS.zip** z
   [najnowszego wydania](https://github.com/OWNER/lithify/releases/latest).
-- **Linux:** **Lithify-Linux.zip** z wydania też działa dwuklikiem (w GNOME: prawy przycisk →
-  *Uruchom jako program*). Gdy działa ufw albo firewalld, instalator proponuje otwarcie portów,
-  z których korzysta głośnik.
-- Jeśli na komputerze nie ma Pythona 3.11 lub nowszego, instalator doda go tylko dla tego
+- **Linux:** **Lithify-Linux.zip** z wydania też działa dwuklikiem. W GNOME kliknij plik prawym
+  przyciskiem i wybierz *Uruchom jako program*. Gdy działa ufw albo firewalld, instalator
+  proponuje otwarcie portów, z których korzysta głośnik.
+- Jeśli na komputerze nie ma Pythona 3.11 lub nowszego, instalator doda go tylko dla Twojego
   użytkownika, bez uprawnień administratora.
+- **Chcesz przejrzeć skrypt przed uruchomieniem?** Najpierw go pobierz
+  (`curl -fsSLo install.sh https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh`),
+  przeczytaj, potem uruchom `sh install.sh`. Na Windowsie otwórz `Lithify-Windows.cmd` w
+  edytorze tekstu.
 
-Wszystko, co instalator zmienia, jego opcje i instalacja ręczna (po angielsku):
+Głośniki w osobnej sieci (VLAN), opcje instalatora i instalacja ręczna (po angielsku):
 [installation.md](../installation.md).
 
 </details>
@@ -99,66 +109,111 @@ Wszystko, co instalator zmienia, jego opcje i instalacja ręczna (po angielsku):
 
 | Platforma | Modele Lithe Audio | Stan |
 |---|---|---|
-| Libre LS9 | Wi-Fi Ceiling Speaker V2 (pojedynczy i para), WiFi PRO, Micro Subwoofer | obsługiwane |
-| Libre LS10 | Wi-Fi Speaker V3, WiFi PRO 2, iO1 | jeszcze nie, zobacz [platforms.md](../platforms.md) |
+| Libre LS9 | Wi-Fi Ceiling Speaker V2 | obsługiwany, sprawdzony na firmware p15525.144.0 |
+| Libre LS9 | WiFi PRO, Micro Subwoofer, para Ceiling Speaker V2 | ta sama platforma, jeszcze nie sprawdzone |
+| Libre LS10 | Wi-Fi Speaker V3, WiFi PRO 2, iO1 | nieobsługiwane, zobacz [platforms.md](../platforms.md) |
 
-Kreator mówi, czy głośnik jest obsługiwany, zanim cokolwiek zmieni.
+Kreator sprawdza głośnik, zanim cokolwiek zmieni, i przerywa, jeśli głośnik nie jest obsługiwany.
+
+Sprawdzone komputery: Windows 11, macOS 15 i Ubuntu 24.04.
+
+## Ograniczenia i ryzyko
+
+- **Na własne ryzyko.** Lithify nie pochodzi od Lithe Audio i producent go nie wspiera. Instaluje
+  się przez nieudokumentowaną konsolę serwisową. Zmiana oprogramowania głośnika może wpłynąć na
+  wsparcie producenta. Nie ma żadnej gwarancji, zobacz [LICENSE](../../LICENSE).
+- **Regulamin Spotify.** librespot to nieoficjalny klient. Spotify go nie popiera, a korzystanie z
+  niego może naruszać regulamin Spotify.
+- **Jedno źródło naraz.** Głośnik ma jedno wyjście audio. Gdy zaczyna grać Cast, AirPlay,
+  Bluetooth albo wbudowany Spotify, librespot się zatrzymuje.
+- **Bez multiroomu.** Urządzenie librespot nie wchodzi do grup głośników Google Cast. Spotify
+  Connect gra na jednym urządzeniu naraz.
+- **Aktualizacje wymagają komputera.** Głośnik gra bez niego, ale przyciski aktualizacji na
+  stronie działają tylko wtedy, gdy na komputerze działa pomocnik Lithify. To mała usługa w tle,
+  którą instaluje instalator.
 
 ## Jak to działa
 
 ```mermaid
 flowchart LR
-    release["Wydanie na GitHubie"] -- "pobrane i sprawdzone" --> computer["Twój komputer<br>pomocnik Lithify"]
-    computer -- "zainstalowane przez Twoją sieć" --> speaker["Głośnik Lithe Audio<br>librespot + agent Lithify"]
+    release["Wydanie na GitHubie"] -- "pobrane po HTTPS" --> computer["Twój komputer<br>pomocnik Lithify"]
+    computer -- "skopiowane przez Twoją sieć" --> speaker["Głośnik Lithe Audio<br>librespot + agent Lithify"]
     app["Aplikacja Spotify"] -- "Spotify Connect" --> speaker
 ```
 
-Lithify dodaje dwa wpisy do listy usług głośnika: librespot oraz małego agenta, który prowadzi
-strażnika i stronę WWW. Ich pliki leżą w jednym katalogu w trwałej pamięci głośnika. Twój
-komputer pobiera każde wydanie, sprawdza każdy plik i przekazuje je głośnikowi przez sieć
-lokalną, więc głośnik nigdy sam nie pobiera oprogramowania z internetu. Więcej (po angielsku):
-[architecture.md](../architecture.md).
+Lithify dodaje dwie pozycje do listy programów, które głośnik uruchamia przy starcie. Jedna to
+librespot. Druga to mały program, agent Lithify, który pilnuje działania Spotify i udostępnia
+stronę WWW. Ich pliki leżą w jednym katalogu w trwałej pamięci głośnika.
 
-## Aktualizacje
+Komputer pobiera każde wydanie po HTTPS i sprawdza je z sumami kontrolnymi wydania. Pliki nie są
+podpisane. Pomocnik kopiuje je potem na głośnik przez Twoją sieć. Sam głośnik nigdy nie pobiera
+oprogramowania z internetu.
 
-Kliknij **Zaktualizuj wszystko** na stronie głośnika albo uruchom instalator ponownie. Komputer
-pobiera najnowsze wydanie, a głośnik instaluje je tylko wtedy, gdy jest nowsze, i zachowuje swoje
-ustawienia. **Przywróć poprzednią wersję** wraca do poprzedniej wersji.
+Więcej (po angielsku): [architecture.md](../architecture.md).
+
+## Prywatność
+
+Lithify nie wysyła żadnych statystyk. Komputer łączy się z GitHubem, żeby pobrać Lithify i jego
+wydania. Tylko wtedy, gdy sam buduje Lithify, łączy się też ze stronami potrzebnymi do budowania,
+na przykład crates.io i alsa-project.org. Głośnik łączy się ze Spotify, a w sprawie aktualizacji
+z Twoim komputerem.
+
+## Aktualizacja i usuwanie
+
+- **Aktualizacja:** kliknij **Zaktualizuj wszystko** na stronie głośnika albo uruchom instalator
+  ponownie. Głośnik instaluje wydanie tylko wtedy, gdy jest nowsze od tego, które ma, i zachowuje
+  swoje ustawienia. Przyciskiem **Przywróć poprzednią wersję** cofniesz aktualizację.
+- **Po aktualizacji firmware** głośnik może przestać uruchamiać Lithify. Uruchom instalator
+  ponownie.
+- **Usuwanie:** polecenie `lithify uninstall`, uruchomione na komputerze, przywraca fabryczne
+  oprogramowanie głośnika i pyta, zanim uruchomi go ponownie. Jak usunąć Lithify także z
+  komputera: [installation.md](../installation.md#uninstalling) (po angielsku).
 
 ## Pytania
 
 **Czy Lithify zmienia firmware głośnika?**\
-Nie. Dodaje jeden katalog i dwa wpisy na liście usług głośnika. Google Cast, AirPlay i oficjalny
-Spotify działają dalej, a `lithify uninstall` przywraca głośnik do stanu sprzed instalacji.
+Nie. Dodaje jeden katalog i dwie pozycje do listy programów uruchamianych przy starcie. Google
+Cast, AirPlay i wbudowany Spotify działają dalej.
 
 **Dlaczego Spotify pokazuje głośnik dwa razy?**\
-Jedna pozycja to wbudowany klient Spotify, druga to Lithify. Oficjalną możesz ukryć na stronie
-głośnika. Wraca sama, gdy librespot przestaje działać.
+Jedna pozycja to wbudowany Spotify, druga to Lithify. Wbudowany możesz ukryć na stronie
+głośnika. Jeśli librespot przestanie działać na około dwie minuty, wbudowany wróci jako zapas.
 
 **Czy komputer musi być cały czas włączony?**\
-Tylko podczas instalacji i aktualizacji. Głośnik gra bez niego.
+Nie, tylko podczas instalacji i aktualizacji. Głośnik gra bez niego.
 
 **Gdzie jest moje logowanie do Spotify?**\
 Nigdzie go nie wpisujesz. Gdy pierwszy raz wybierzesz głośnik w aplikacji Spotify, Spotify
-przekaże mu token logowania, który głośnik zachowa, jak każde urządzenie Spotify Connect.
+przekaże mu token logowania, który głośnik zachowa. Każdy w Twojej sieci, kto skorzysta z
+konsoli serwisowej głośnika, może ten token odczytać (zobacz następne pytanie). Jeśli
+podejrzewasz nadużycie, wyloguj wszystkie urządzenia w ustawieniach konta Spotify.
 
 **Czy to bezpieczne?**\
-Firmware LS9 ma na porcie TCP 23 konsolę serwisową root dostępną bez hasła dla każdego w Twojej
-sieci. Lithify używa jej do instalacji, ale jej nie dodał i nie może jej zamknąć. Trzymaj głośniki
-w zaufanej sieci, najlepiej w osobnej sieci dla urządzeń smart home. Szczegóły (po angielsku):
-[security.md](../security.md).
+Firmware głośnika ma konsolę serwisową na porcie TCP 23. Wykonuje każde polecenie z uprawnieniami
+roota, bez hasła, dla każdego w Twojej sieci. Lithify używa jej do instalacji, ale jej nie dodał
+i nie może jej zamknąć. Strona głośnika też nie ma PIN-u, dopóki go nie ustawisz w *Ustawieniach*.
+Trzymaj głośniki w sieci, której ufasz. Więcej (po angielsku): [security.md](../security.md).
+
+**Gdzie szukać pomocy?**\
+Zajrzyj do [troubleshooting.md](../troubleshooting.md) (po angielsku), potem przejrzyj istniejące
+zgłoszenia. Jeśli nic nie pasuje, załóż nowe i dołącz wynik `lithify status`.
 
 ## Dokumentacja
 
 Po angielsku:
 
-- [Installation](../installation.md): pytania instalatora, co zmienia, opcje, odinstalowanie
+- [Installation](../installation.md): pytania instalatora, wymagania sieciowe, opcje, usuwanie
+- [Troubleshooting](../troubleshooting.md): głośnik nie znaleziony, brak w Spotify, brak dźwięku, zacięcia
 - [Configuration](../configuration.md): wszystkie ustawienia, `config.toml`, kilka głośników
 - [Commands](../commands.md): polecenie `lithify`
-- [Troubleshooting](../troubleshooting.md): brak w Spotify, brak dźwięku, zacięcia, zapora
-- [Security](../security.md): konsola głośnika, PIN strony, co działa gdzie
+- [Security](../security.md): konsola głośnika, PIN strony, token Spotify
 - [Architecture](../architecture.md): jak Lithify działa, buduje się i aktualizuje
 - [Platforms](../platforms.md): LS9, LS10 i dodawanie platform
+
+## Współpraca
+
+Zgłoszenia błędów i pull requesty są mile widziane, zobacz [CONTRIBUTING](../../.github/CONTRIBUTING.md)
+(po angielsku). Problemy z bezpieczeństwem zgłaszaj prywatnie ([jak](../security.md#reporting)).
 
 ## Licencja
 
@@ -168,4 +223,4 @@ statycznie; źródła na [alsa-project.org](https://www.alsa-project.org), a skr
 plik binarny).
 
 Lithify to niezależny projekt, niezwiązany z Lithe Audio, Libre Wireless, Google ani Spotify i
-nieautoryzowany przez nie. Spotify jest znakiem towarowym Spotify AB.
+przez nie nieautoryzowany. Spotify jest znakiem towarowym Spotify AB.

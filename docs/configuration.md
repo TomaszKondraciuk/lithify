@@ -8,9 +8,10 @@ A `config.toml` with every option and its default: [config.example.toml](config.
 does `lithify settings set key=value …`; librespot or the agent restarts by itself when needed.
 Updates – from the page or with `lithify update` – keep them.
 
-**config.toml** gives each speaker's values for its *first* install, and holds what the computer
-needs: the speaker's address and the update helper's. `lithify update --settings` sends its values
-again and replaces those set on the speaker; an environment variable (below) sends just that value.
+**config.toml** gives each speaker's values for its *first* install. It also holds what the
+computer needs: the speaker's address and the helper's. `lithify update --settings` sends its
+values again and replaces those set on the speaker. An environment variable (below) sends just
+that one value.
 
 Every option is described once, in [`agent/settings.tsv`](../agent/settings.tsv); the speaker and
 the `lithify` command validate the same way.
@@ -57,7 +58,7 @@ bitrate = 160
 | `device_type` | `"speaker"` | Icon in Spotify: `speaker`, `avr`, `tv`, `stb` (shown with the speaker icon), `computer`, `tablet`, `smartphone`. With `audiodongle`, `gameconsole`, `castaudio` or `castvideo` the Spotify apps hide the device from Spotify Connect, so the web page does not offer them. |
 | `backend` | `"alsa"` | Audio backend. |
 | `device` | `"plughw:0,0"` | ALSA output; `plughw` converts sample formats and rates as needed. |
-| `format` | `"S16"` | Sample format sent to ALSA. The LS9's WM8904 takes `S16`, `S24` and `S32` natively at 44.1 kHz (Spotify's rate, so nothing is resampled), but its driver caps the audio buffer at 64 KB: 371 ms at 16 bits, 185 ms at 24 or 32 bits. With the speaker's own volume control (`mixer = "alsa"`) librespot sends full-scale samples, and 16 bits with dither lose nothing audible on this converter (96 dB SNR), so the longer buffer wins. `S32` suits `mixer = "softvol"`: librespot then turns the volume down itself, which at 16 bits costs a bit of resolution per 6 dB. |
+| `format` | `"S16"` | Sample format sent to ALSA: `S16`, `S24` or `S32`. Keep `S16` unless you use `mixer = "softvol"`, then `S32` (why: [architecture.md](architecture.md#audio-format)). |
 | `mixer` | `"alsa"` | `alsa`: the Spotify slider sets the speaker's own volume control (recommended – full loudness, shared with Cast and AirPlay). `softvol`: librespot scales the samples itself. |
 | `mixer_device` | `"hw:0"` | ALSA card of the volume control (`mixer = "alsa"`). |
 | `mixer_control` | `"Master"` | Volume control name (`mixer = "alsa"`). |
@@ -75,7 +76,7 @@ The agent runs on the speaker next to librespot.
 | Option | Default | Meaning |
 |---|---|---|
 | `ui` | `true` | Serve the web page. |
-| `ui_port` | `8090` | Its port. When it cannot be used (another service has it), the page falls back to 8090. |
+| `ui_port` | `8090` | Its port. If a port you set cannot be used (another service has it), the page falls back to 8090. |
 | `ui_pin` | `""` | When set, every action on the page (settings, update check, updates, rollback, restarts) asks for this PIN: 4 to 12 digits, six or more are harder to guess. Status, logs and tests stay readable. |
 | `fastfail_hosts` | `[]` | CDN host names your network cannot reach reliably. Their IPv4 addresses (re-resolved every 30 min, each kept for a day after it was last seen) get `unreachable` routes, so both Spotify clients skip to the next CDN at once instead of waiting 10 s or more. Use the page's connection test to find them. |
 | `fastfail_routes` | `[]` | The same for fixed prefixes, e.g. `["199.232.0.0/16"]`. Networks larger than /8, private, loopback and multicast ranges are refused, and the speaker's own network and gateway are never blocked. |
@@ -92,8 +93,9 @@ The agent runs on the speaker next to librespot.
 
 ## `companion` options
 
-`lithify serve` is the helper on your computer that the speaker's web page uses to build and
-install updates.
+`lithify serve` is the Lithify helper: the background service on your computer that the
+speaker's web page uses to get and install updates. (It is called the companion in the
+configuration and in service names.)
 
 | Option | Default | Meaning |
 |---|---|---|

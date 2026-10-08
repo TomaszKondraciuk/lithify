@@ -1,161 +1,167 @@
 # Troubleshooting
 
-Start with the speaker's web page (`lithify ui` prints its address) or `lithify status`; both
-show what is running. `lithify logs` prints the agent's and librespot's recent log lines.
+Start with the speaker's web page. `lithify ui` prints its address, usually
+`http://<speaker>:8090`. The banner at the top names what is wrong, and each card shows what is
+running. On the computer, `lithify status` shows the same, and `lithify logs` prints the recent
+log lines of librespot and the Lithify agent.
 
-## `lithify setup` finds no speaker
+## The wizard does not find my speaker
 
-- The computer and the speaker must be on the same network (and VLAN). `lithify discover` scans
-  your computer's /24 for Google Cast devices (TCP 8008), then asks each one what it is; give the
-  address directly with `lithify setup --host <ip>` otherwise (in the wizard: type it in). The
-  Lithe app or your router shows it.
-- "does not answer on the service console (TCP 23)": the speaker is not an LS9 model (see
-  [platforms.md](platforms.md)), or something filters port 23 between you and it.
-
-## The build fails, or the computer is very slow during it
-
-- The first build compiles librespot on this computer. Its last step needs about 2.2 GB of free
-  memory at once; with less (a computer with 4 GB and a browser open), Lithify uses thin LTO,
-  which needs about 1.2 GB, and compiles once more that way when the system killed the compiler
-  for memory. If it still runs out, the wizard says so: close other programs and try again.
-  Docker Desktop (Windows, macOS) has a memory limit of its own: give it 4 GB or more.
-- `~/.cache/lithify/build.log` (Windows: `%LOCALAPPDATA%\lithify\cache\build.log`) has the
-  whole build.
+- The computer and the speaker must be on the same network. The wizard searches only the
+  computer's own network (for example 192.168.1.0 to 192.168.1.255).
+- Type the speaker's address into the wizard instead. You find it in the Lithe Audio or Google
+  Home app (the speaker's settings, device information) or in your router's list of devices.
+- "Does not answer on the service console (TCP 23)": the speaker is not an LS9 model (see
+  [platforms.md](platforms.md)), or something between the computer and the speaker blocks port 23.
+- Speakers on a separate network (VLAN): see
+  [Network requirements](installation.md#network-requirements).
 
 ## The new device does not appear in Spotify
 
-- Wait a minute after an install or reboot; `lithify status` should show librespot's version.
-- Spotify finds librespot with mDNS (zeroconf). Phone and speaker must be on the same network;
-  "client isolation" or "AP isolation" on the Wi-Fi blocks it, so do some mesh/guest networks.
-- Once you have played on it, librespot stores the login (`cache/credentials.json`) and connects
-  by itself after restarts; the web page shows "Spotify account: saved".
-- Look for the name set on the page (*Settings → Name in Spotify*).
+- Wait a minute after an install or a restart. The speaker's page should say that librespot is
+  running.
+- The phone and the speaker must be on the same network. Spotify finds the device with mDNS, a way
+  for devices to announce themselves on a local network. Wi-Fi "client isolation" ("AP
+  isolation"), some guest networks and some mesh systems block it.
+- Look for the name shown on the page under *Settings → Name in Spotify*. By default it is the
+  speaker's name followed by "(librespot)".
+- After you have played on it once, the speaker keeps the login and connects by itself after
+  restarts. The page then shows "Spotify account: saved".
 
 ## It connects, but there is no sound
 
-- Check the *Audio* card on the web page: the speaker volume may be at zero or muted; raise it in
-  the Lithe app or with the Spotify slider.
-- Another source (Cast, AirPlay, Bluetooth, the official client) may hold the audio device; the
-  page's *Audio* card shows the Libre source and whether the output is playing. librespot pauses
-  that source before it plays; if it can't, pause it in its own app.
+- Check *Speaker volume* on the page's *Spotify Connect* card. It may be at zero: raise it with
+  the Spotify slider or in the Lithe Audio app.
+- Another source may hold the speaker: Cast, AirPlay, Bluetooth or the built-in Spotify. The
+  speaker has one audio output, and the card's *Now* line says when another source is playing.
+  librespot pauses that source before it plays. If it cannot, pause the source in its own app.
 
-## It's quiet
+## It is quiet
 
-`mixer = "alsa"` (the default) makes the Spotify slider the speaker's own volume, with the full
-range. With `mixer = "softvol"` librespot only scales samples below the speaker's volume.
+With the default setting the Spotify slider controls the speaker's own volume, over its full
+range. If you changed *Volume control* to "librespot only" (`mixer = "softvol"`), librespot can
+only make the sound quieter than the speaker's own volume. Switch it back on the page.
 
-## Stutter, long start, skipping
+## Stutter, a long start, skipping
 
-- Run **Test connections** on the web page. Hosts with "no connection" or "slow" are the
-  problem. When a CDN host keeps failing (on some ISPs Fastly – `*.scdn.co`), add it to
-  `fastfail_hosts` and run `lithify update`; Spotify then skips it immediately.
-- Look at the Wi-Fi card: a signal below about −70 dBm, or the 2.4 GHz band in a busy area,
-  causes drop-outs. A 5 GHz network usually helps.
-- The librespot test counts buffer underruns in the recent log; a few at track changes are
-  harmless, many during playback point to the network.
+- Click **Check connections** on the page. Servers marked "no connection" or "slow" are the
+  problem.
+- Some internet providers reach a part of Spotify's content servers (CDN) badly. Spotify then
+  waits 10 seconds or more before it tries another one. If the same server keeps failing, add its
+  name to *Settings → Advanced → CDN servers to skip*, and the speaker will skip it at once.
+- Look at the *Network* card. A signal weaker than about −70 dBm (a lower number is weaker), or the
+  2.4 GHz band in a building with many networks, causes drop-outs. A 5 GHz network usually helps.
+- **Run a check** on the librespot card counts buffer underruns, the moments when music ran out
+  before more arrived. A few at track changes are harmless. Many during playback point to the
+  network.
 
-## The official Spotify device misbehaves
+## The built-in Spotify device misbehaves
 
-That is the firmware's client (eSDK 3.194); Lithify can only restart it. The agent does that
-automatically when it spins or crashes, and the web page has a restart button. Prefer the
-librespot device.
+That device is the speaker's own Spotify client, and Lithify cannot fix it. It can only restart
+it. The agent does that by itself when the client hangs or crashes, and the page has a restart
+button. Use the librespot device instead, or hide the built-in one on the page.
 
-## After a firmware or Cast update Lithify is gone
+## After a firmware update Lithify is gone
 
-The files in `/lsync/lithify` survive, but a Cast update may replace the service list. Run
-`lithify update`: it detects the stock list, re-adds the two entries, and reboots once.
+A firmware or Google Cast update may reset the list of programs the speaker starts. Lithify's
+files stay on the speaker. Run the installer again, or `lithify update`: it adds Lithify back and
+restarts the speaker once.
 
-## The web page's update buttons are greyed out
+## The page's update buttons are greyed out
 
-They need `lithify serve` on your computer (the installer starts it), reachable from the speaker
-on port 8095:
+They need the Lithify helper on your computer. The helper is a small background service that the
+installer sets up. Check that the computer is on and awake, and on the same network as the
+speaker. To start the helper again:
 
 ```sh
-lithify serve --install-service      # starts it with the computer, and now
+lithify serve --install-service
 ```
 
-It runs as a scheduled task "Lithify companion" on Windows (log in
-`%LOCALAPPDATA%\lithify\logs\companion.log`), a launchd agent on macOS
-(`~/Library/Logs/lithify/companion.log`) and a systemd user service on Linux
-(`systemctl --user status lithify-companion`).
+| System | The helper is | Its log |
+|---|---|---|
+| Windows | the scheduled task "Lithify companion" | `%LOCALAPPDATA%\lithify\logs\companion.log` |
+| macOS | a launchd agent | `~/Library/Logs/lithify/companion.log` |
+| Linux | the systemd user service `lithify-companion` | `systemctl --user status lithify-companion` |
 
-The speaker learns the helper's address at install time; if your computer's address has changed
-since, run `lithify update`. On a laptop that sleeps, the buttons work while it is awake.
+The speaker learns the computer's address when Lithify is installed. If the computer's address
+has changed since, run `lithify update` once.
 
-## The speaker cannot download from the computer (firewall)
+## The speaker cannot download from the computer
 
-The speaker connects to the computer on TCP 8095 (the helper) and 18096–18099 (the temporary
-servers of `lithify install`). On Windows, Lithify adds the firewall rule "Lithify" for these ports from the
-local network – Windows asks for consent once; if you said no:
+The speaker downloads Lithify from your computer on TCP 8095 and 18096–18099. The installer checks
+this before it changes anything. When the check fails, it stops with "the speaker cannot download
+from this computer" and says what to do on your system. Common causes:
 
-```powershell
-netsh advfirewall firewall add rule name=Lithify dir=in action=allow protocol=TCP localport=8095,18096-18099 remoteip=localsubnet profile=any
-```
+- **Windows:** the firewall rule "Lithify" is missing, because the permission question was
+  answered with *No*. Run the installer again and answer *Yes*. Or, in PowerShell opened as
+  administrator:
 
-(in a PowerShell opened as administrator). With ufw on Linux:
-`sudo ufw allow from 192.168.0.0/16 to any port 8095,18096:18099 proto tcp`; macOS asks on its own
-when its firewall is on.
+  ```powershell
+  netsh advfirewall firewall add rule name=Lithify dir=in action=allow protocol=TCP localport=8095,18096-18099 remoteip=localsubnet profile=any
+  ```
 
-`lithify install` checks this before it changes anything: the speaker downloads a small file from
-the computer first, and when it cannot, the install stops with "the speaker cannot download from
-this computer" and what to do on this system (it names this computer's network for ufw). The
-same happens when the computer and the speaker are not really on one network: a VPN on the
-computer, or a guest Wi-Fi that keeps devices apart.
+  Also set the network to *Private* (*Settings → Network & internet → Properties*).
+- **macOS:** the firewall is on and Python was not allowed. Open *System Settings → Network →
+  Firewall → Options* and allow incoming connections for Python.
+- **Linux with ufw:** open the ports for your network. Replace `192.168.1.0/24` with yours:
+  `sudo ufw allow from 192.168.1.0/24 to any port 8095,18096:18099 proto tcp`
+- **Any system:** a VPN on the computer, or a guest Wi-Fi that keeps devices apart.
 
-## Build problems
+## A setting changed on the page did not stick
 
-- `Docker is required`: install Docker (Docker Desktop on Windows and macOS – it must be
-  running), or download a published bundle with `lithify fetch`. When `versions.toml` names a
-  release (`[release] url`), `lithify install` downloads that bundle first and builds only when
-  it cannot.
-- Macs with Apple chips and ARM Linux computers (a Raspberry Pi) build too: Docker runs the
-  builder image's arm64 variant, and the agent's tests run on that CPU.
-- Network errors while building: the build keeps a local mirror of librespot in the cache
-  directory and the downloaded crates in a Docker volume; retry later, or run `lithify build`
-  again – finished steps are reused.
-- `another build is running`: a build started from the speaker's page (or another terminal) is
-  still going; wait for it. A build from the page that runs longer than two hours is stopped,
-  and so is one whose companion stops; build containers left behind by a build that was killed
-  are removed when the companion starts.
-- `local patch … does not apply`: librespot changed the code the patch touches (after "update
-  everything" moved to a newer commit); the previous version keeps running. Refresh the patch in
-  `build/patches/`, or drop it from `local_patches` in `versions.toml`.
-- `librespot commit … is not on dev`: the commit is not in the local mirror (GitHub was
-  unreachable during the first build); retry when the network is back.
+If librespot cannot run with new settings (for example an extra option it does not know), the
+agent puts the previous settings back after about 90 seconds and notes it in the page's events.
+Correct the value and save again.
 
-## I forgot the web page's PIN
+## I forgot the page's PIN
 
 ```sh
 lithify settings reset-pin
 ```
 
-removes it through the service console; then set a new one on the page.
-
-## A setting changed on the page "did not stick"
-
-When librespot cannot keep running with new options (for example an extra argument it does not
-know), the agent restores the previous settings after about 90 seconds and says so in the
-page's events. Correct the value and save again.
+This removes the PIN. Then set a new one on the page.
 
 ## "Update everything" failed
 
-With releases, the computer downloads the newest one: when it cannot (no internet, GitHub out of
-reach), the page says so and the speaker keeps what it runs; try again later. Every file is checked
-against the release's checksums, and nothing is replaced unless all of them arrived intact.
+The page shows why, and the speaker keeps the version it runs.
 
-Without releases, the page shows the build's last lines. When newer librespot, alsa-lib or Rust
-releases do not build, Lithify keeps the previous versions, so the speaker is unchanged; try again
-later or report the error. A failed install leaves the running version in place, and *Roll back*
-returns to the one before.
+- **Lithify installed from a release:** the computer could not download the newest one, because
+  the internet or GitHub was out of reach. Try again later. Nothing is replaced unless every file
+  arrived intact.
+- **Lithify built on your computer:** the page shows the build's last lines. When newer versions
+  of librespot, alsa-lib or Rust do not build, Lithify keeps the previous ones. Try again later,
+  or report the error.
 
-When the update of Lithify itself does not start, the companion goes back to the code that
-worked (`git reset --keep`, which never touches uncommitted changes in the checkout). If changes
-of yours are in the way, it leaves everything as it is and says so (on the page, or in the
-companion's log); go back yourself with `git reset --keep <commit>`, or commit your changes first.
+A failed install leaves the running version in place, and **Roll back** returns to the one before.
+
+When the update of Lithify itself does not start, the helper goes back to the code that worked
+(`git reset --keep`, which never touches uncommitted changes). If changes of yours are in the way,
+it leaves everything as it is and says so. Go back yourself with `git reset --keep <commit>`, or
+commit your changes first.
+
+## Building Lithify on the computer
+
+You only build when no ready-made release can be downloaded.
+
+- **`Docker is required`:** install Docker. On Windows and macOS that is Docker Desktop, and it
+  must be running. Or download a release instead: `lithify fetch`.
+- **The build fails, or the computer slows down during it:** the build needs about 4 GB of free
+  memory. Close other programs and try again; Lithify uses a lighter build mode on its own when
+  memory is short. In Docker Desktop, give Docker at least 4 GB (*Settings → Resources*).
+- **Network errors while building:** run `lithify build` again later. Finished steps are reused.
+- **`another build is running`:** a build started from the speaker's page or from another terminal
+  is still going. Wait for it to finish.
+- **`local patch … does not apply`** or **`librespot commit … is not on dev`:** the librespot code
+  moved on, or GitHub was out of reach during the first build. The speaker keeps its version. See
+  [architecture.md](architecture.md#build-reproducibility).
+- The whole build log is in `~/.cache/lithify/build.log`, on Windows
+  `%LOCALAPPDATA%\lithify\cache\build.log`.
 
 ## Undo everything
 
 ```sh
-lithify rollback          # previous version
-lithify uninstall         # stock service list, delete /lsync/lithify, reboot
+lithify rollback          # the previous version of Lithify
+lithify uninstall         # the speaker's stock software again
 ```
+
+Removing Lithify from the computer too: [installation.md](installation.md#uninstalling).

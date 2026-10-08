@@ -5,19 +5,20 @@
   <img src="docs/images/logo-light.svg" alt="Lithify" width="240">
 </picture>
 
-**Reliable Spotify Connect for Lithe Audio Wi-Fi speakers.**
+**Spotify Connect for Lithe Audio Wi-Fi speakers, built on librespot.**
 
 [![Latest release](https://img.shields.io/github/v/release/OWNER/lithify)](https://github.com/OWNER/lithify/releases/latest)
 [![CI](https://github.com/OWNER/lithify/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/lithify/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[Install](#install) · [Features](#features) · [FAQ](#faq) · [Documentation](#documentation) · [Po polsku](docs/pl/README.md)
+[Install](#install) · [Limitations](#limitations-and-risks) · [FAQ](#faq) · [Documentation](#documentation) · [Po polsku](docs/pl/README.md)
 
 </div>
 
-Lithify puts [librespot](https://github.com/librespot-org/librespot), the open-source Spotify
-Connect client, on Lithe Audio ceiling speakers. It runs next to the speaker's own firmware and
-installs from any computer in a few clicks. Nothing is flashed, and one command removes it.
+Lithify installs [librespot](https://github.com/librespot-org/librespot), an open-source Spotify
+Connect client, on Lithe Audio ceiling speakers. It runs next to the speaker's own software: the
+firmware is not replaced, and Google Cast, AirPlay and the built-in Spotify keep working. You
+install it from a Windows, macOS or Linux computer on the same network.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/speaker-page-dark.png">
@@ -26,32 +27,30 @@ installs from any computer in a few clicks. Nothing is flashed, and one command 
 
 ## Why
 
-The Spotify client built into Lithe Audio's LS9 speakers dates from 2021, and their last firmware
-came out in 2024. It starts a song and then plays nothing, lags on pause and skip, and can keep a
-CPU core busy for days. Lithify gives each speaker a second, current Spotify Connect device that
-just plays, and keeps it up to date.
+The Spotify client built into Lithe Audio's LS9 speakers dates from 2021, and the last firmware
+update came out in 2024. On our speakers it often started a song and then played nothing, reacted
+late to pause and skip, and once kept a processor core busy for days. librespot is maintained and
+updated every few weeks; Lithify puts it on the speaker and keeps it up to date.
 
 ## Features
 
-- **Plays reliably.** librespot 0.8 with upstream fixes, built for the speaker's own Cortex-A7
+- **A second Spotify device on each speaker**, running librespot, built for the speaker's
   processor.
-- **Real speaker volume.** The Spotify slider moves the same volume as Google Cast and AirPlay.
-- **Nothing flashed.** Firmware, Cast, AirPlay and the official Spotify all stay.
-  `lithify uninstall` restores the stock speaker.
-- **A page on every speaker.** Status, settings, connection tests and logs at
-  `http://<speaker>:8090`, in English and Polish.
-- **One-click updates.** Your computer fetches each new release, and the speaker installs it,
-  keeps its settings, and can roll back in one step.
-- **A watchdog.** It revives the official Spotify client when it hangs, and lets Cast and AirPlay
-  take over the speaker when they start.
+- **The speaker's own volume.** The Spotify slider moves the same volume as Google Cast and AirPlay.
+- **A web page on each speaker** at `http://<speaker>:8090`, in English and Polish: status,
+  settings, connection tests, logs, updates and rollback.
+- **Updates with one button** on that page, or by running the installer again. If a new version
+  misbehaves, the previous one is one click away.
+- **A watchdog for the built-in Spotify.** It restarts it when it hangs or crashes, and stops
+  librespot when Cast, AirPlay or Bluetooth start playing.
 
 ## Install
 
 You need:
 
-- a [supported speaker](#supported-speakers);
-- **Spotify Premium** (librespot does not work with free accounts);
-- a Windows, macOS or Linux computer on the same network.
+- a supported speaker, see [Supported speakers](#supported-speakers);
+- **Spotify Premium**, because librespot does not work with free accounts;
+- a computer on the same network as the speaker: Windows 10 or 11, macOS, or Linux.
 
 **Windows:** download [**Lithify-Windows.cmd**](https://github.com/OWNER/lithify/releases/latest/download/Lithify-Windows.cmd) and double-click it.
 
@@ -67,32 +66,44 @@ curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/instal
 wget -qO- https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
 ```
 
-The installer asks once before it changes anything, then opens the Lithify wizard in your
-browser. The wizard finds the speaker by itself. Click **Install**, and a few minutes later pick
-*Kitchen (librespot)* in Spotify's list of devices.
+What happens next:
+
+1. The installer lists what it will add to the computer and asks once before it starts.
+2. It opens the Lithify wizard in your browser. The wizard finds the speaker on its own.
+3. You click **Install**. This usually takes a few minutes, and the speaker is silent for about a
+   minute while it restarts.
+
+If the computer cannot download a ready-made release, the installer builds Lithify itself. That
+needs Docker and about 4 GB of free memory, and the first build takes up to an hour.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/wizard-dark.png">
   <img src="docs/images/wizard-light.png" alt="The Lithify wizard: the speaker it found, its name in Spotify, and the Install button" width="720">
 </picture>
 
-<details>
-<summary>Prompts you may see, and other ways to install</summary>
+**Check that it works:** open Spotify on your phone, tap the devices icon, and pick
+*Kitchen (librespot)*, with your speaker's name instead of Kitchen. You can rename it on the
+speaker's page under *Settings*.
 
-- **Windows** asks once whether to run the file: *Run*, or *More info → Run anyway*. It asks once
-  more for permission to add a firewall rule, so the speaker can download its software from your
-  computer: *Yes*. The same in PowerShell:
-  `irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex`
-- **macOS:** if its firewall is on, it asks whether Python may accept incoming connections:
+<details>
+<summary>Prompts you may see, reading the script first, and other ways to install</summary>
+
+- **Windows** asks once whether to run the file: click *Run*, or *More info → Run anyway*. It then
+  asks for permission to add a firewall rule, so the speaker can download its software from your
+  computer: click *Yes*.
+- **macOS:** if its firewall is on, it asks whether Python may accept incoming connections: click
   *Allow*. To install with a double-click instead, use **Lithify-macOS.zip** from the
   [latest release](https://github.com/OWNER/lithify/releases/latest).
-- **Linux:** **Lithify-Linux.zip** from the release installs with a double-click too (on GNOME:
-  right-click → *Run as a Program*). With ufw or firewalld on, the installer offers to open the
-  ports the speaker uses.
-- If the computer has no Python 3.11 or newer, the installer adds one for this user only, without
-  administrator rights.
+- **Linux:** **Lithify-Linux.zip** from the release works with a double-click too. On GNOME,
+  right-click the file and choose *Run as a Program*. With ufw or firewalld on, the installer
+  offers to open the ports the speaker uses.
+- If the computer has no Python 3.11 or newer, the installer adds one for your user only. It needs
+  no administrator rights.
+- **To read the script before it runs,** download it first
+  (`curl -fsSLo install.sh https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh`),
+  look at it, then run `sh install.sh`. On Windows, open `Lithify-Windows.cmd` in a text editor.
 
-Everything the installer changes, its options, and the manual way:
+Speakers on a separate network (VLAN), the installer's options, and the manual way are in
 [docs/installation.md](docs/installation.md).
 
 </details>
@@ -101,70 +112,110 @@ Everything the installer changes, its options, and the manual way:
 
 | Platform | Lithe Audio models | Status |
 |---|---|---|
-| Libre LS9 | Wi-Fi Ceiling Speaker V2 (single and pair), WiFi PRO, Micro Subwoofer | supported |
-| Libre LS10 | Wi-Fi Speaker V3, WiFi PRO 2, iO1 | not yet, see [platforms.md](docs/platforms.md) |
+| Libre LS9 | Wi-Fi Ceiling Speaker V2 | supported, tested on firmware p15525.144.0 |
+| Libre LS9 | WiFi PRO, Micro Subwoofer, Ceiling Speaker V2 pair | same platform, not tested yet |
+| Libre LS10 | Wi-Fi Speaker V3, WiFi PRO 2, iO1 | not supported, see [platforms.md](docs/platforms.md) |
 
-The wizard tells you whether a speaker is supported before it changes anything.
+The wizard checks the speaker before it changes anything, and stops if the speaker is not
+supported.
+
+Tested computers: Windows 11, macOS 15 and Ubuntu 24.04.
+
+## Limitations and risks
+
+- **Use at your own risk.** Lithify is not made or supported by Lithe Audio. It installs through a
+  service console the manufacturer did not document. Changing the speaker's software may affect
+  the manufacturer's support. There is no warranty, see [LICENSE](LICENSE).
+- **Spotify's terms.** librespot is an unofficial client. Spotify does not endorse it, and using
+  it may go against Spotify's terms of use.
+- **One source at a time.** The speaker has one audio output. When Cast, AirPlay, Bluetooth or the
+  built-in Spotify start playing, librespot stops.
+- **No multi-room.** The librespot device is not part of Google Cast speaker groups. Spotify
+  Connect plays on one device at a time.
+- **Updates need your computer.** The speaker plays without it, but the page's update buttons work
+  only while the Lithify helper is running on your computer. The helper is a small background
+  service that the installer sets up.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    release["GitHub release"] -- "downloaded and verified" --> computer["Your computer<br>Lithify helper"]
-    computer -- "installed over your network" --> speaker["Lithe Audio speaker<br>librespot + Lithify agent"]
+    release["GitHub release"] -- "downloaded over HTTPS" --> computer["Your computer<br>Lithify helper"]
+    computer -- "copied over your network" --> speaker["Lithe Audio speaker<br>librespot + Lithify agent"]
     app["Spotify app"] -- "Spotify Connect" --> speaker
 ```
 
-Lithify adds two entries to the speaker's own service list: librespot, and a small agent that
-runs the watchdog and the web page. Their files live in one folder on the speaker's persistent
-storage. Your computer downloads each release, checks every file and hands it to the speaker over
-your network, so the speaker never downloads its software from the internet itself. More in
-[docs/architecture.md](docs/architecture.md).
+Lithify adds two entries to the list of programs the speaker starts at boot. One is librespot.
+The other is a small program, the Lithify agent, that runs the watchdog and the web page. Their
+files live in one folder on the speaker's persistent storage.
 
-## Updating
+Your computer downloads each release over HTTPS and checks it against the release's checksums.
+The files are not signed. The helper then copies them to the speaker over your network. The
+speaker itself never downloads its software from the internet.
 
-Click **Update everything** on the speaker's page, or run the installer again. Your computer
-downloads the newest release. The speaker installs it only if it is newer, and keeps its settings.
-**Roll back** returns to the previous version.
+More detail: [docs/architecture.md](docs/architecture.md).
+
+## Privacy
+
+Lithify sends no usage statistics anywhere. Your computer connects to GitHub to download Lithify
+and its releases. Only when it builds Lithify itself does it also connect to the sites the build
+needs, such as crates.io and alsa-project.org. The speaker connects to Spotify, and to your
+computer for updates.
+
+## Updating and removing
+
+- **Update:** click **Update everything** on the speaker's page, or run the installer again. The
+  speaker installs a release only if it is newer than what it runs, and keeps its settings.
+  **Roll back** on the page returns to the previous version.
+- **After a firmware update,** the speaker may stop starting Lithify. Run the installer again.
+- **Remove:** `lithify uninstall`, run on your computer, returns the speaker to its stock software
+  and asks before it restarts the speaker. To remove Lithify from the computer as well, follow
+  [docs/installation.md](docs/installation.md#uninstalling).
 
 ## FAQ
 
 **Does it change the speaker's firmware?**\
-No. Lithify adds one folder and two entries to the speaker's service list. Google Cast, AirPlay and
-the official Spotify keep working, and `lithify uninstall` puts the speaker back as it was.
+No. Lithify adds one folder and two entries to the speaker's startup list. Google Cast, AirPlay
+and the built-in Spotify keep working.
 
 **Why does Spotify list my speaker twice?**\
-One entry is the speaker's own Spotify client, the other is Lithify. You can hide the official one
-on the speaker's page. It comes back by itself whenever librespot stops.
+One entry is the built-in Spotify, the other is Lithify. You can hide the built-in one on the
+speaker's page. If librespot stops working for about two minutes, the built-in one comes back as
+a fallback.
 
 **Does my computer have to stay on?**\
-Only during the installation and for updates. The speaker plays on its own.
+No, only during the installation and for updates. The speaker plays on its own.
 
 **Where is my Spotify login?**\
 You never type it into Lithify. The first time you pick the speaker in the Spotify app, Spotify
-hands the speaker a login token, which the speaker keeps, like any Spotify Connect device.
+gives the speaker a login token, and the speaker keeps it. Anyone on your network who can use the
+speaker's service console can read that token (see the next question). If you suspect misuse,
+sign out of all devices in your Spotify account settings.
 
 **Is it safe?**\
-The LS9 firmware has a root service console on TCP port 23, open without a password to anyone on
-your network. Lithify uses that console to install, but it did not add it and cannot close it.
-Keep the speakers on a network you trust, ideally a separate one for smart-home devices. Details in
-[docs/security.md](docs/security.md).
+The speaker's firmware has a service console on TCP port 23. It runs any command as root, with no
+password, for anyone on your network. Lithify uses it to install, but did not add it and cannot
+close it. The speaker's page also has no PIN until you set one under *Settings*. Keep the speakers
+on a network you trust. More in [docs/security.md](docs/security.md).
+
+**How do I get help?**\
+Check [docs/troubleshooting.md](docs/troubleshooting.md), then search the existing issues. If
+nothing fits, open an issue and include the output of `lithify status`.
 
 ## Documentation
 
-- [Installation](docs/installation.md): prompts, what changes, options, uninstalling
+- [Installation](docs/installation.md): prompts, network requirements, options, uninstalling
+- [Troubleshooting](docs/troubleshooting.md): speaker not found, not in Spotify, no sound, stutter
 - [Configuration](docs/configuration.md): every setting, `config.toml`, several speakers
 - [Commands](docs/commands.md): the `lithify` command line
-- [Troubleshooting](docs/troubleshooting.md): not in Spotify, no sound, stutter, the firewall
-- [Security](docs/security.md): the speaker's console, the page's PIN, what runs where
+- [Security](docs/security.md): the speaker's console, the page's PIN, the Spotify token
 - [Architecture](docs/architecture.md): how Lithify runs, builds and updates
 - [Platforms](docs/platforms.md): LS9, LS10, and adding a platform
 
 ## Contributing
 
-Bug reports and pull requests are welcome. Run the tests with
-`python -m unittest discover -s tests -t .`, and the agent's with `cargo test` in `agent/`.
-Please report security problems privately ([how](docs/security.md#reporting)).
+Bug reports and pull requests are welcome, see [CONTRIBUTING](.github/CONTRIBUTING.md). Please
+report security problems privately ([how](docs/security.md#reporting)).
 
 ## License
 

@@ -41,7 +41,7 @@ before anything is changed.
 - Never change the ALSA `Master` control or its playback switch directly (amixer): the firmware
   mirrors every change into Cast's system volume and mute state, and a mute set that way sticks
   (and briefly set off a volume-sync loop between the Libre services). Change the volume through
-  Spotify, Cast or the Lithe app; librespot's `--mixer alsa` path is fine.
+  Spotify, Cast or the Lithe Audio app; librespot's `--mixer alsa` path is fine.
 - A Cast firmware update may replace `/system/chrome/process.json`; `lithify update` puts the
   entries back. `/lsync` survives reboots, factory resets and firmware updates.
 

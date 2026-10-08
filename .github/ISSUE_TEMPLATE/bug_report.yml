@@ -22,9 +22,16 @@ body:
         - Wi-Fi Ceiling Speaker V2
         - WiFi PRO
         - Micro Subwoofer
-        - Other (write it below)
+        - Ceiling Speaker V2 pair
+        - Another model (write it below)
     validations:
       required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Lithify version and speaker firmware
+      description: Both are on the speaker's page (Updates and System cards), or in `lithify status`.
+      placeholder: "Lithify 0.1.0, firmware p15525.144.0"
   - type: dropdown
     id: os
     attributes:

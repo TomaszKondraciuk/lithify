@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Questions and ideas
+    url: https://github.com/OWNER/lithify/discussions
+    about: Ask a question, suggest a feature, or say you can test a model we do not support yet.
   - name: Troubleshooting
     url: https://github.com/OWNER/lithify/blob/main/docs/troubleshooting.md
     about: Common problems and their fixes.

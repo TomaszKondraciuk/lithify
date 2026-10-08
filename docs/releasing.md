@@ -6,7 +6,9 @@ The repository stays private until what Lithify found on the speakers has gone t
 1. `python3 .github/scripts/go-public.py <owner>/<repository>`: the launchers, the installers and
    the READMEs then download from that repository (they say `OWNER/lithify` until then), and
    `versions.toml` names the releases' bundle (`[release] url`).
-2. Commit and push that, and make the repository public.
+2. Commit and push that, and make the repository public. Then, in the repository's settings, turn
+   on *Private vulnerability reporting* (*Security*), which [security.md](security.md#reporting)
+   points to; GitHub offers it only for public repositories.
 3. Tag the first release: `git tag v0.1.0 && git push origin v0.1.0`. The release workflow
    (`.github/workflows/release.yml`) builds the bundle in Docker (about 20 minutes) and publishes
    it together with `Lithify-Windows.cmd`, `Lithify-macOS.zip` and `Lithify-Linux.zip` (the last

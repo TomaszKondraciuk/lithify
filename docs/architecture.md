@@ -11,7 +11,7 @@
    │             └─ bundle: librespot, agent,       └─ lithify_agent:
    │                alsa.tar, VERSIONS, SHA256SUMS        lithify-agent run
    │                                                        ├─ watchdog (official Spotify, PCM conflicts,
-   ├─ stage ── + librespot.args, agent.conf,               │   silent starts, fail-fast routes)
+   ├─ stage ── + settings.default, install.conf,           │   silent starts, fail-fast routes)
    │            process.json (from config.toml)            └─ web page :8090 ── status · tests · updates
    │                                                                 │
    └─ install ── HTTP (LAN) ──────────────► install.sh (root console)│
@@ -60,14 +60,19 @@ A bundle carries `settings.default` (config.toml's values) and, only when sent o
 
 ## Install and update
 
-1. `lithify build` creates the bundle: librespot at the pinned tag plus back-ported upstream
-   commits, every dependency refreshed (`cargo update`), libmdns patched for Linux 3.8, compiled
-   for Cortex-A7 with NEON; the agent's unit tests run, then it is cross-compiled. Everything
-   compiles in the Docker builder image; the crates and the compiler's output stay in Docker
-   volumes, so the build is the same – and as fast – on Windows, macOS and Linux.
-2. `lithify install` stages the bundle for one speaker – adding `librespot.args`, `agent.conf` and
-   the service list rendered from `config.toml` – and serves it over HTTP on the LAN for the
-   duration of the install.
+1. The bundle (librespot, the agent, alsa-lib's configuration, `VERSIONS` and `SHA256SUMS`)
+   comes from a release (`lithify fetch`) or from `lithify build`. A build takes librespot at the
+   commit of its `dev` branch pinned in `versions.toml` and applies the local patches in
+   `build/patches/`. It refreshes every dependency (`cargo update`), patches libmdns for the
+   speaker's Linux 3.8 (no `SO_REUSEPORT`), and compiles for Cortex-A7 with NEON. The agent's unit
+   tests run first, then the agent is cross-compiled. Everything compiles in the Docker builder
+   image, and the crates and the compiler's output stay in Docker volumes, so the build is the
+   same on Windows, macOS and Linux.
+2. `lithify install` stages the bundle for one speaker. It adds `settings.default` (the speaker's
+   values from `config.toml`, used only when the speaker has no settings yet), `install.conf` (the
+   helper's address and the speaker's id), `settings.patch` when settings are sent on purpose, and
+   the service list `process.json`. It then serves these files over HTTP on the LAN while the
+   install runs.
 3. On the speaker, `install.sh` checks the free space, downloads every file into `new/`, checks
    it against `SHA256SUMS`, gives it its final modes and flushes it, keeps the current version in
    `prev/` (hard links: no extra space) and only then moves the new files in, one rename each. A
@@ -94,7 +99,7 @@ page never changes the service list, so it never needs a reboot.
   the root console only for the two actions that need root (restarting the official client and
   adding routes).
 
-What keeps it light and self-healing:
+How it stays light and recovers on its own:
 
 - **One logcat reader** for everything it reads (librespot's and its own lines for the page,
   official Spotify's errors for the silent-start watch). Each reader receives the speaker's whole
@@ -126,9 +131,19 @@ What keeps it light and self-healing:
   `sh -c LUCI_local 494 StationConnected` after a Wi-Fi reconnect); with `SIGCHLD` ignored that
   shell keeps a whole core busy until the next reboot once its command has finished. The agent
   stops an orphaned, childless `sh -c` that holds a core for 30 s (the page counts them).
-- **The page stays reachable**: when its port cannot be used, it falls back to 8090.
+- **The page stays reachable**: when a custom `ui_port` cannot be used, the page falls back to
+  the default port 8090.
 - **Fail-fast routes expire** a day after their address was last resolved, and go away when the
   settings no longer ask for them.
+
+## Audio format
+
+The LS9's WM8904 converter takes `S16`, `S24` and `S32` natively at 44.1 kHz, Spotify's rate, so
+nothing is resampled. Its driver caps the audio buffer at 64 KB: that is 371 ms at 16 bits, but
+only 185 ms at 24 or 32 bits. With the speaker's own volume control (`mixer = "alsa"`) librespot
+sends full-scale samples, and 16 bits with dither lose nothing audible on this 96 dB converter.
+So the default is `S16`, for the longer buffer. With `mixer = "softvol"` librespot turns the
+volume down itself, which at 16 bits costs resolution (one bit per 6 dB), so `S32` suits it better.
 
 ## Build reproducibility
 
