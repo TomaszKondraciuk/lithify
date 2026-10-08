@@ -144,6 +144,7 @@
       how_2: 'Tap the devices icon (Spotify Connect: a small speaker and screen) at the bottom of the player.',
       how_3: 'Pick “{0}” from the list. The first time, Spotify links the speaker to your account; after that it connects by itself.',
       helper_ok: 'Lithify’s helper now runs on this computer and starts with it. It keeps the speaker updatable: on the speaker’s page, “Updates” → “Update everything”.',
+      helper_ok_macos: 'Lithify’s helper now runs on this computer and starts with it (macOS lists it as “python3.x” under Login Items & Extensions – that is this helper). It keeps the speaker updatable: on the speaker’s page, “Updates” → “Update everything”.',
       helper_failed: 'The update helper could not be set up on this computer. The speaker works; for updates from its page, run “lithify serve --install-service” later.',
       helper_no_systemd: 'This computer has no systemd user session, so the update helper cannot start by itself. The speaker works; for updates from its page, start “lithify serve” yourself, for example from your desktop’s autostart.',
       another: 'Set up another speaker', finish: 'Finish',
@@ -315,6 +316,7 @@
       how_2: 'Dotknij ikony urządzeń (Spotify Connect: mały głośnik i ekran) na dole odtwarzacza.',
       how_3: 'Wybierz z listy „{0}”. Za pierwszym razem Spotify połączy głośnik z Twoim kontem; potem łączy się sam.',
       helper_ok: 'Pomocnik Lithify działa teraz na tym komputerze i uruchamia się razem z nim. Dzięki niemu głośnik można aktualizować: na stronie głośnika „Aktualizacje” → „Zaktualizuj wszystko”.',
+      helper_ok_macos: 'Pomocnik Lithify działa teraz na tym komputerze i uruchamia się razem z nim (macOS pokazuje go jako „python3.x” w Rzeczach otwieranych przy logowaniu – to właśnie ten pomocnik). Dzięki niemu głośnik można aktualizować: na stronie głośnika „Aktualizacje” → „Zaktualizuj wszystko”.',
       helper_failed: 'Nie udało się ustawić pomocnika aktualizacji na tym komputerze. Głośnik działa; aby aktualizować go z jego strony, uruchom później „lithify serve --install-service”.',
       helper_no_systemd: 'Ten komputer nie ma sesji użytkownika systemd, więc pomocnik aktualizacji nie uruchomi się sam. Głośnik działa; aby aktualizować go z jego strony, uruchamiaj „lithify serve” samodzielnie, np. z autostartu pulpitu.',
       another: 'Skonfiguruj kolejny głośnik', finish: 'Zakończ',
@@ -817,7 +819,7 @@
     setProp($('page-quiet'), 'hidden', !o.page_quiet);
     setText($('how-3'), t('how_3', o.spotify_name || ''));
     const helper = $('helper');
-    setText(helper, o.helper_ok ? t('helper_ok') : t(o.helper_key || 'helper_failed'));
+    setText(helper, o.helper_ok ? t(has(`helper_ok_${st.os}`) ? `helper_ok_${st.os}` : 'helper_ok') : t(o.helper_key || 'helper_failed'));
     setClass(helper, `msg ${o.helper_ok ? 'ok' : 'warn'}`);
     setText($('helper-detail'), o.helper_detail || '');
     setProp($('helper-more'), 'hidden', o.helper_ok || !o.helper_detail);

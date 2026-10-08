@@ -72,7 +72,7 @@ web page later.
 | | |
 |---|---|
 | **Windows** | `Lithify-Windows.cmd` – Windows asks once whether to run it ("The publisher could not be verified"): click *Run* (if it says "Windows protected your PC" instead: *More info → Run anyway*) |
-| **macOS** | `Lithify-macOS.command` – the first time: right-click it → *Open* → *Open* (macOS 15 and newer: *System Settings → Privacy & Security → Open Anyway*) |
+| **macOS** | `Lithify-macOS.command` – the first time: right-click it → *Open* → *Open* (macOS 15 and newer: *System Settings → Privacy & Security → Open Anyway*); when macOS asks whether Terminal may access the Downloads folder: *Allow* |
 | **Linux** | `Lithify-Linux.sh` – Ubuntu and other GNOME systems open it in a text editor on a double-click: close that, right-click the file → *Run as a Program* (or run `sh Lithify-Linux.sh` in a terminal) |
 
 The window shows every step and stays open at the end. Run it again any time: it skips what is

@@ -9,7 +9,8 @@
 # from an unidentified developer", or "Apple could not verify ..."): right-click (Control-click)
 # it, choose Open, then Open again. On macOS 15 and newer: System Settings > Privacy & Security >
 # "Open Anyway". If macOS says you have no permission to run it: chmod +x Lithify-macOS.command
-# (or run `sh Lithify-macOS.command` in Terminal).
+# (or run `sh Lithify-macOS.command` in Terminal). Then macOS asks whether Terminal may access
+# files in the Downloads folder: Allow (the installer reads its files from there).
 set -u
 INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/OWNER/lithify/main/install.sh}
 here=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || here=$(pwd)
