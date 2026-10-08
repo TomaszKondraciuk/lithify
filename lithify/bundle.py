@@ -107,6 +107,10 @@ _DOCKER_LAYER = re.compile(r"#\d+ sha256:([0-9a-f]{12})[0-9a-f]* ([\d.]+)([kMG]?
 _DOCKER_SAVE = re.compile(r"#\d+ exporting to image")
 _UNITS = {"B": 1, "kB": 1e3, "MB": 1e6, "GB": 1e9}
 _COMPILING = re.compile(r"\s+Compiling \S+ v")
+# The last crate: librespot itself, which cargo compiles and then links, optimizing the whole
+# program at once (LTO): minutes without a line.
+_LAST_CRATE = re.compile(r"\s+Compiling librespot v")
+LAST_CRATE_NOTE = "librespot itself: the last step, several minutes without output"
 DOWNLOAD_NOTE_MB = 50  # a note every 50 MB of a download: the base image of a first build is about 800 MB
 
 
@@ -141,7 +145,7 @@ def docker_steps() -> Progress:
 
 
 def crates_compiled(every: int = 10) -> Progress:
-    """Every `every` crates cargo begins to compile."""
+    """Every `every` crates cargo begins to compile, and the last one (librespot itself)."""
     count = 0
 
     def note(line: str) -> str | None:
@@ -149,6 +153,8 @@ def crates_compiled(every: int = 10) -> Progress:
         if not _COMPILING.match(line):
             return None
         count += 1
+        if _LAST_CRATE.match(line):
+            return LAST_CRATE_NOTE
         return f"crates compiled: {count}" if count % every == 0 else None
     return note
 

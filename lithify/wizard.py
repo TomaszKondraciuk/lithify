@@ -91,8 +91,13 @@ _BUILD_STEPS = (("builder image", "image", 0.02), ("librespot: ", "reuse", 0.85)
 # How far a long step has come (bundle.docker_steps, bundle.crates_compiled), and the part of the
 # bar it moves through: the builder image up to its next step, librespot's crates likewise.
 _STEP_NOTE = re.compile(r" {4}(?:builder image: step (\d+) of (\d+)|crates compiled: (\d+)|"
-                        r"builder image: downloaded (\d+) MB|builder image: (saving) it)")
-_STEP_SPAN = {"image": (0.02, 0.3), "compile": (0.35, 0.85)}
+                        r"builder image: downloaded (\d+) MB|builder image: (saving) it|"
+                        rf"({re.escape(bundle.LAST_CRATE_NOTE)}))")
+_STEP_SPAN = {"image": (0.02, 0.3), "compile": (0.35, 0.6)}
+# librespot itself, compiled and linked last as one: about as long as all the other crates together
+# (fat LTO: 5.5 of 11 minutes on 4 cores, 2026-10), without a line. The bar waits there, and the
+# page says why ("link").
+LINK_AT = 0.62
 LIBRESPOT_CRATES = 290  # about how many crates a librespot build compiles (284 for librespot 0.8, 2026-10)
 # The builder image of a first build: its base image (rust-musl-cross, 780 MB in 2026-10) takes
 # the first part of that step's time, its own steps (Rust, alsa-lib) the rest.
@@ -472,6 +477,10 @@ class Task:
 
     def _advance(self, m: re.Match) -> None:
         """A long step has come further: the bar moves within that step's part (never back)."""
+        if m[6]:
+            if self.step == "compile":
+                self.step, self.progress = "link", max(self.progress or 0.0, LINK_AT)
+            return
         span = _STEP_SPAN.get(self.step or "")
         if span is None or bool(m[1] or m[4] or m[5]) != (self.step == "image"):
             return

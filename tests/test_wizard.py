@@ -80,8 +80,8 @@ class PhaseTest(unittest.TestCase):
         lines = [FRESH[0], FRESH[1], "    builder image: step 1 of 4",
                  *(f"    builder image: downloaded {mb} MB" for mb in (50, 500, 1000, 1500)),
                  *(f"    builder image: step {k} of 4" for k in range(2, 5)), "    builder image: saving it", FRESH[2],
-                 FRESH[4], *(f"    crates compiled: {n}" for n in range(10, 400, 10)), FRESH[5],
-                 "    crates compiled: 10"]  # (the agent's crates do not move the bar back)
+                 FRESH[4], *(f"    crates compiled: {n}" for n in range(10, 400, 10)), f"    {bundle.LAST_CRATE_NOTE}",
+                 FRESH[5], "    crates compiled: 10"]  # (the agent's crates do not move the bar back)
         for i, line in enumerate(lines):
             task.add(line, float(i))
             seen.append((task.step, task.progress))
@@ -91,7 +91,8 @@ class PhaseTest(unittest.TestCase):
         self.assertEqual([round(f, 3) for f in image], [0.02, 0.02, 0.027, 0.09, 0.132, 0.132, 0.174, 0.216,
                                                         0.258, 0.278])
         self.assertEqual((image[0], round(image[-1], 2)), (0.02, 0.28))  # (saved: just before its part's end)
-        self.assertEqual((compile_[0], compile_[-1]), (0.35, 0.35 + 0.5 * 0.98))  # (never past its part)
+        self.assertEqual((compile_[0], compile_[-1]), (0.35, 0.35 + 0.25 * 0.98))  # (never past its part)
+        self.assertEqual([f for s, f in seen if s == "link"], [wizard.LINK_AT])  # (librespot itself: it waits)
         self.assertEqual([f for _, f in seen if f is not None], sorted(f for _, f in seen if f is not None))
         self.assertEqual(seen[-1], ("agent", 0.88))
 
@@ -527,7 +528,8 @@ class PageTest(ServerCase):
         sent |= {f"err_{k}" for k in ("build_failed", "unknown", "cancelled", "timeout", "docker_desktop_missing",
                                       "docker_start_timeout")}
         sent |= {f"ph_{p}" for p in wizard.PHASES} | {f"sub_{s}" for _, s, _ in wizard._BUILD_STEPS if s}
-        sent |= {"sub_download", "helper_failed", "helper_no_systemd", "docker_published", "bundle_published",
+        sent |= {"sub_download", "sub_link", "helper_failed", "helper_no_systemd", "docker_published",
+                 "bundle_published",
                  *(f"docker_{s}" for s in ("ok", "missing", "not_running", "permission", "slow", "not_needed"))}
         self.assertEqual(sent - en, set())
         # how to fix each problem, on every system (a text of its own where they differ)

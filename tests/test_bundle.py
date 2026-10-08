@@ -294,6 +294,9 @@ class CommandTest(unittest.TestCase):
         said = [crates(f"   Compiling crate{i} v1.0.{i}") for i in range(1, 6)]
         self.assertEqual(said, [None, "crates compiled: 2", None, "crates compiled: 4", None])
         self.assertIsNone(crates("    Finished `release` profile"))
+        # (librespot itself comes last, and alone takes minutes; its parts count like any crate)
+        said = [crates(f"   Compiling {name} v0.8.0 (/src)") for name in ("librespot-core", "librespot")]
+        self.assertEqual(said, ["crates compiled: 6", bundle.LAST_CRATE_NOTE])
         with tempfile.TemporaryDirectory() as d, mock.patch("sys.stdout", new_callable=io.StringIO) as out:
             code = "print('#5 [1/2] FROM x'); print('#5 DONE'); print('#6 [2/2] RUN make')"
             bundle.sh([sys.executable, "-c", code], log=Path(d) / "build.log", progress=bundle.docker_steps())
