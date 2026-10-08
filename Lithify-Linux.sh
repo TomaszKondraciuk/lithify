@@ -19,6 +19,33 @@ INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/OWNER/lithi
 here=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || here=$(pwd)
 self="$here/$(basename "$0")"
 
+# The language of the messages: LITHIFY_LANG (pl or en), else the system's: on macOS its display
+# language, elsewhere the locale (LANGUAGE, LC_ALL, LC_MESSAGES, LANG). (installer/install.sh: the same.)
+lithify_lang() {
+  case ${LITHIFY_LANG:-} in
+    pl* | PL*) echo pl && return 0 ;;
+    en* | EN*) echo en && return 0 ;;
+    *) ;;
+  esac
+  if [ "$(uname -s)" = Darwin ]; then
+    first=$(defaults read -g AppleLanguages 2>/dev/null | sed -n '2s/[^A-Za-z-]//gp')
+    case $first in
+      pl*) echo pl && return 0 ;;
+      ?*) echo en && return 0 ;;
+      *) ;;
+    esac
+  fi
+  for v in "${LANGUAGE:-}" "${LC_ALL:-}" "${LC_MESSAGES:-}" "${LANG:-}"; do
+    if [ -n "$v" ]; then
+      case $v in pl*) echo pl ;; *) echo en ;; esac
+      return 0
+    fi
+  done
+  echo en
+}
+if [ "$(lithify_lang)" = pl ]; then PL=1; else PL=0; fi
+L() { if [ "$PL" = 1 ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }  # L ENGLISH POLISH
+
 # Started from a file manager, there is no terminal to show the progress and ask the questions
 # in: open one, and run this file there.
 if [ ! -t 0 ] && [ ! -t 1 ] && [ "${LITHIFY_IN_TERMINAL:-0}" != 1 ]; then
@@ -36,7 +63,8 @@ if [ ! -t 0 ] && [ ! -t 1 ] && [ "${LITHIFY_IN_TERMINAL:-0}" != 1 ]; then
       *) exec "$t" -e sh "$self" ;;
     esac
   done
-  msg="Lithify needs a terminal window. Open one (Terminal, Konsole, ...) and run:  sh '$self'"
+  msg=$(L "Lithify needs a terminal window. Open one (Terminal, Konsole, ...) and run:  sh '$self'" \
+    "Lithify potrzebuje okna terminala. Otwórz je (Terminal, Konsole, ...) i uruchom:  sh '$self'")
   if command -v zenity >/dev/null 2>&1; then
     zenity --error --title=Lithify --text="$msg"
   elif command -v kdialog >/dev/null 2>&1; then
@@ -48,20 +76,35 @@ if [ ! -t 0 ] && [ ! -t 1 ] && [ "${LITHIFY_IN_TERMINAL:-0}" != 1 ]; then
   exit 1
 fi
 
-cat <<'EOF'
+if [ "$PL" = 1 ]; then
+  cat <<'EOF'
+
+  ==============================================================
+    Lithify - Spotify Connect dla głośników Lithe Audio
+  ==============================================================
+
+  Ten program przygotuje komputer (zapyta, zanim cokolwiek
+  zainstaluje), a potem otworzy w przeglądarce stronę, która
+  znajdzie głośnik i zainstaluje na nim Lithify. Za pierwszym
+  razem trwa to 15-40 minut; komputer i głośnik muszą być
+  w tej samej sieci.
+
+EOF
+else
+  cat <<'EOF'
 
   ==============================================================
     Lithify - Spotify Connect for your Lithe Audio speaker
-    Lithify - Spotify Connect dla głośników Lithe Audio
   ==============================================================
 
   This gets your computer ready (it asks before it installs
   anything), then opens a page in your web browser that finds
   the speaker and installs Lithify on it. The first time takes
-  15-30 minutes; your computer and the speaker must be on the
+  15-40 minutes; your computer and the speaker must be on the
   same network.
 
 EOF
+fi
 
 LITHIFY_LAUNCHER=1
 export LITHIFY_LAUNCHER
@@ -69,7 +112,7 @@ if [ -f "$here/installer/install.sh" ]; then
   sh "$here/installer/install.sh"
   rc=$?
 else
-  printf '==> downloading the installer: %s\n' "$INSTALL_URL"
+  printf '==> %s %s\n' "$(L 'downloading the installer:' 'pobieranie instalatora:')" "$INSTALL_URL"
   tmp=$(mktemp "${TMPDIR:-/tmp}/lithify-install.XXXXXX") || exit 1
   if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$INSTALL_URL" -o "$tmp"
@@ -78,27 +121,27 @@ else
     wget -q -O "$tmp" "$INSTALL_URL"
     rc=$?
   else
-    printf 'error: there is neither curl nor wget to download the installer with\n' >&2
+    printf '%s\n' "$(L 'error: there is neither curl nor wget to download the installer with' 'błąd: nie ma ani curla, ani wgeta, żeby pobrać instalator')" >&2
     rc=1
   fi
   if [ "$rc" = 0 ]; then
     sh "$tmp"
     rc=$?
   else
-    printf 'error: could not download the installer: check the internet connection\n' >&2
+    printf '%s\n' "$(L 'error: could not download the installer: check the internet connection' 'błąd: nie udało się pobrać instalatora: sprawdź połączenie z internetem')" >&2
   fi
   rm -f "$tmp"
 fi
 
 printf '\n'
 if [ "$rc" = 0 ]; then
-  printf '  Lithify is ready. Enjoy the music!\n'
+  printf '  %s\n' "$(L 'Lithify is ready. Enjoy the music!' 'Lithify jest gotowy. Miłego słuchania!')"
 elif [ "$rc" = 130 ]; then
-  printf '  Stopped. Run this again whenever you like: it goes on where it stopped.\n'
+  printf '  %s\n' "$(L 'Stopped. Run this again whenever you like: it goes on where it stopped.' 'Przerwano. Uruchom to ponownie, kiedy zechcesz: będzie kontynuować tam, gdzie skończyło.')"
 else
-  printf '  Lithify is not installed yet: the messages above say why, and what to do.\n'
-  printf '  You can run this again any time: it skips what is already done.\n'
+  printf '  %s\n' "$(L 'Lithify is not installed yet: the messages above say why, and what to do.' 'Lithify nie jest jeszcze zainstalowany: komunikaty powyżej mówią dlaczego i co zrobić.')"
+  printf '  %s\n' "$(L 'You can run this again any time: it skips what is already done.' 'Możesz to uruchomić ponownie w każdej chwili: pominie to, co już zrobione.')"
 fi
-printf '\n  Press Enter to close this window. '
+printf '\n  %s ' "$(L 'Press Enter to close this window.' 'Naciśnij Enter, aby zamknąć to okno.')"
 read -r _ || true
 exit "$rc"

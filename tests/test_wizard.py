@@ -755,10 +755,26 @@ class LanguageTest(unittest.TestCase):
                 self.assertTrue(wizard._polish(None))
             with mock.patch.object(wizard, "_windows_ui_polish", return_value=None):
                 self.assertTrue(wizard._polish(None))  # (it cannot be told: the formats then)
-        with mock.patch.dict(wizard.os.environ, {"LANG": "pl_PL.UTF-8"}, clear=True):
+        with mock.patch.dict(wizard.os.environ, {"LANG": "pl_PL.UTF-8"}, clear=True), \
+                mock.patch.object(wizard, "OS", "linux"):
             self.assertTrue(wizard._polish(None))
             self.assertFalse(wizard._polish("en"))
+            with mock.patch.dict(wizard.os.environ, {"LITHIFY_LANG": "en"}):
+                self.assertFalse(wizard._polish(None))  # (chosen on purpose, as the installers do)
         self.assertIs(wizard._windows_ui_polish() if os.name != "nt" else None, None)
+
+    def test_macos_says_its_display_language(self):
+        def defaults(out: str):
+            return mock.patch.object(wizard.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, out, ""))
+
+        with mock.patch.dict(wizard.os.environ, {"LANG": "en_US.UTF-8"}, clear=True), \
+                mock.patch.object(wizard, "OS", "macos"):
+            with defaults('(\n    "pl-PL",\n    "en-US"\n)\n'):
+                self.assertTrue(wizard._polish(None))  # (a Polish Mac with an English LANG)
+            with defaults('(\n    "en-GB",\n    pl\n)\n'):
+                self.assertFalse(wizard._polish(None))
+            with mock.patch.object(wizard.subprocess, "run", side_effect=OSError):
+                self.assertFalse(wizard._polish(None))  # (cannot tell: the locale)
 
 
 class RunTest(unittest.TestCase):

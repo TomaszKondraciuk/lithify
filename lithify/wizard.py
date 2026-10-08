@@ -1041,15 +1041,31 @@ def _windows_ui_polish() -> bool | None:
     return (langid & 0x3FF) == LANG_POLISH if langid else None
 
 
+def _macos_ui_polish() -> bool | None:
+    """Is macOS shown in Polish? (its first preferred language)"""
+    try:
+        r = subprocess.run(["defaults", "read", "-g", "AppleLanguages"], capture_output=True, text=True, timeout=5,
+                           stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    first = re.search(r'"?([A-Za-z]{2,3})[-_A-Za-z]*"?\s*[,)]', r.stdout) if r.returncode == 0 else None
+    return first[1].lower() == "pl" if first else None
+
+
 def _polish(lang: str | None) -> bool:
-    """Does this computer's user read Polish? (for the few lines in the terminal)"""
+    """Does this computer's user read Polish? (for the few lines in the terminal) As the installers
+    decide: LITHIFY_LANG, else the display language of Windows or macOS, else the locale."""
     if lang:
         return lang == "pl"
-    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+    chosen = os.environ.get("LITHIFY_LANG", "").lower()
+    if chosen[:2] in ("pl", "en"):
+        return chosen.startswith("pl")
+    ui = _windows_ui_polish() if OS == "windows" else _macos_ui_polish() if OS == "macos" else None
+    if ui is not None:
+        return ui
+    for var in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
         if os.environ.get(var):
             return os.environ[var].lower().startswith("pl")
-    if OS == "windows" and (ui := _windows_ui_polish()) is not None:
-        return ui
     with contextlib.suppress(ValueError):
         return (locale.getlocale()[0] or "").lower().startswith(("pl", "polish"))
     return False
