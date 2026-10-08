@@ -87,6 +87,8 @@ class GoPublicTest(unittest.TestCase):
     """.github/scripts/go-public.py: the repository's name instead of the placeholder, once."""
 
     def test_the_files_name_the_repository_and_keep_their_bytes(self):
+        if b"OWNER/lithify" not in (ROOT / "README.md").read_bytes():
+            self.skipTest("this repository names itself already (go-public.py ran)")
         import importlib.util
         import shutil
         import tempfile

@@ -385,6 +385,7 @@ class ServerCase(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         for target, name, value in ((bundle, "CACHE", Path(tmp.name)),
                                     (wizard, "firewall_help", lambda: dict(FIREWALL)),  # (one of its own each)
+                                    (wizard, "_published", lambda: False),  # (as before going public)
                                     (bundle, "remove_stale_containers", lambda: 0)):
             patch = mock.patch.object(target, name, value)
             patch.start()
