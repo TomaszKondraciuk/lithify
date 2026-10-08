@@ -23,7 +23,7 @@
   const T = {
     en: {
       doc_title: 'Lithify setup', app_title: 'Spotify Connect setup', lang_group: 'Language', steps_label: 'Steps',
-      step_welcome: 'Welcome', step_computer: 'Computer', step_speaker: 'Speaker', step_name: 'Name',
+      step_welcome: 'Welcome', step_computer: 'Computer', step_speaker: 'Speaker',
       step_install: 'Install', step_done: 'Done', step_completed: 'completed', loading: 'Loading…',
       footer: 'This page runs on this computer only; other devices on your network cannot open it.',
       back: 'Back', next: 'Continue', try_again: 'Try again', copy: 'Copy', copied: 'Copied',
@@ -40,9 +40,9 @@
       welcome_lead: 'This assistant adds Spotify Connect (librespot) to your Lithe Audio speaker, so it plays reliably from the Spotify app on your phone, tablet or computer.',
       welcome_what: 'What happens',
       w_1: 'This computer checks that it has what it needs and finds your speaker on the home network.',
-      w_2: 'It builds the software for the speaker – the first time this takes 10–20 minutes – and installs it over the network.',
+      w_2: 'It builds the software for the speaker – the first time this takes 10–30 minutes – and installs it over the network.',
       w_3: 'The speaker restarts once and is silent for about a minute.',
-      w_time: 'All in all about 15–30 minutes the first time; later updates take a few minutes.',
+      w_time: 'All in all about 15–40 minutes the first time; later updates take a few minutes.',
       welcome_safe: 'Nothing is flashed',
       w_safe: 'The speaker keeps its own firmware, Google Cast and AirPlay. Lithify runs next to them and can be removed again at any time.',
       welcome_need: 'You need',
@@ -68,7 +68,7 @@
       disk_ok: '{free} GB free.',
       disk_low: 'Only {free} GB free. Building the speaker software needs about 6 GB: free some space first.',
       bundle_present: 'Already built ({version}), so this installation takes only a few minutes.',
-      bundle_absent: 'It will be built during the installation (10–20 minutes the first time).',
+      bundle_absent: 'It will be built during the installation (10–30 minutes the first time).',
       bundle_published: 'It will be downloaded ready-made during the installation (a minute or two).',
       fix_docker_missing_windows: 'Install Docker Desktop (free for personal use), start it once and wait until it shows “Engine running”. Then click “Check again”.',
       fix_docker_missing_macos: 'Install Docker Desktop (free for personal use), start it from Applications and wait until it is running. Then click “Check again”.',
@@ -95,7 +95,7 @@
       lithify_installed: 'installed (librespot {0})',
       unnamed: 'Lithe Audio speaker', model_unknown: 'unknown model',
       sp_checking: 'checking…', sp_supported: 'supported', sp_unsupported: 'not supported', sp_silent: 'no answer',
-      use_speaker: 'Use this speaker', use_aria: 'Use the speaker {0}',
+      use_speaker: 'Use this speaker', use_aria: 'Use the speaker {0}', chosen_btn: 'Chosen', chosen_aria: 'Chosen: {0}',
       r_no_console: 'Its service console does not answer. Newer models (WiFi Speaker V3, PRO 2, iO1) are not supported yet; if this is a WiFi Speaker V2, WiFi PRO or Micro Subwoofer, restart it and search again.',
       r_not_found: 'Nothing answers at this address. Check the address and that the speaker is switched on.',
       r_unsupported_model: 'This model is not supported yet: Lithify works with the WiFi Speaker V2, WiFi PRO and Micro Subwoofer.',
@@ -113,7 +113,7 @@
       name_label: 'Name in Spotify', name_help: '1 to 64 characters.',
       name_bad: 'Give the speaker a name of 1 to 64 characters.',
       name_summary: 'Speaker: {0}, {1}, at {2}',
-      before_install: 'The first installation takes 15–30 minutes. Keep this computer switched on and awake, and leave this page and the Lithify window open.',
+      before_install: 'The first installation takes 15–40 minutes. Keep this computer switched on and awake, and leave this page and the Lithify window open.',
       hint_windows: 'Windows may ask whether Lithify may make changes (a firewall rule, so the speaker can download its software from this computer): choose “Yes”.',
       hint_macos: 'If macOS asks whether Python may accept incoming network connections, choose “Allow”: the speaker downloads its software from this computer.',
       hint_linux: 'If this computer runs a firewall (ufw, firewalld), the speaker must reach it on TCP ports {0}.',
@@ -122,7 +122,7 @@
       install_title: 'Installing on {0}', now: 'Now: {0}', now_step: '{0}: {1}', elapsed: 'Time so far: {0}',
       ph_prepare: 'Preparing', ph_build: 'Building the speaker software', ph_install: 'Installing on the speaker',
       ph_restart: 'Restarting the speaker', ph_check: 'Checking and finishing',
-      ph_build_note: 'The first build takes 10–20 minutes; later ones are much faster.',
+      ph_build_note: 'The first build takes 10–30 minutes; later ones are much faster.',
       ph_restart_note: 'About a minute without sound.',
       ph_check_note: 'Lithify also sets up its helper on this computer, which keeps the speaker updatable.',
       ps_pending: 'waiting', ps_active: 'in progress', ps_done: 'done', ps_skipped: 'not needed', ps_failed: 'stopped',
@@ -195,7 +195,7 @@
     },
     pl: {
       doc_title: 'Instalacja Lithify', app_title: 'Instalacja Spotify Connect', lang_group: 'Język', steps_label: 'Kroki',
-      step_welcome: 'Start', step_computer: 'Komputer', step_speaker: 'Głośnik', step_name: 'Nazwa',
+      step_welcome: 'Start', step_computer: 'Komputer', step_speaker: 'Głośnik',
       step_install: 'Instalacja', step_done: 'Gotowe', step_completed: 'ukończony', loading: 'Wczytywanie…',
       footer: 'Ta strona działa tylko na tym komputerze; inne urządzenia w sieci nie mają do niej dostępu.',
       back: 'Wstecz', next: 'Dalej', try_again: 'Spróbuj ponownie', copy: 'Kopiuj', copied: 'Skopiowano',
@@ -212,9 +212,9 @@
       welcome_lead: 'Ten asystent doda do Twojego głośnika Lithe Audio Spotify Connect (librespot), żeby niezawodnie grał z aplikacji Spotify na telefonie, tablecie lub komputerze.',
       welcome_what: 'Co się stanie',
       w_1: 'Komputer sprawdzi, czy ma wszystko, czego potrzeba, i znajdzie głośnik w sieci domowej.',
-      w_2: 'Zbuduje oprogramowanie dla głośnika – za pierwszym razem trwa to 10–20 minut – i zainstaluje je przez sieć.',
+      w_2: 'Zbuduje oprogramowanie dla głośnika – za pierwszym razem trwa to 10–30 minut – i zainstaluje je przez sieć.',
       w_3: 'Głośnik raz uruchomi się ponownie i przez około minutę nie będzie grał.',
-      w_time: 'Łącznie za pierwszym razem około 15–30 minut; późniejsze aktualizacje trwają kilka minut.',
+      w_time: 'Łącznie za pierwszym razem około 15–40 minut; późniejsze aktualizacje trwają kilka minut.',
       welcome_safe: 'Bez wgrywania firmware',
       w_safe: 'Głośnik zachowuje swój firmware, Google Cast i AirPlay. Lithify działa obok nich i w każdej chwili można go usunąć.',
       welcome_need: 'Potrzebne będą',
@@ -240,7 +240,7 @@
       disk_ok: 'Wolne: {free} GB.',
       disk_low: 'Wolne tylko {free} GB. Budowanie oprogramowania głośnika potrzebuje około 6 GB: najpierw zwolnij trochę miejsca.',
       bundle_present: 'Już zbudowane ({version}), więc ta instalacja potrwa tylko kilka minut.',
-      bundle_absent: 'Zostanie zbudowane podczas instalacji (za pierwszym razem 10–20 minut).',
+      bundle_absent: 'Zostanie zbudowane podczas instalacji (za pierwszym razem 10–30 minut).',
       bundle_published: 'Zostanie pobrane gotowe podczas instalacji (minuta lub dwie).',
       fix_docker_missing_windows: 'Zainstaluj Docker Desktop (bezpłatny do użytku osobistego), uruchom go raz i poczekaj, aż pokaże „Engine running”. Potem kliknij „Sprawdź ponownie”.',
       fix_docker_missing_macos: 'Zainstaluj Docker Desktop (bezpłatny do użytku osobistego), uruchom go z folderu Programy i poczekaj, aż zacznie działać. Potem kliknij „Sprawdź ponownie”.',
@@ -267,7 +267,7 @@
       lithify_installed: 'zainstalowany (librespot {0})',
       unnamed: 'Głośnik Lithe Audio', model_unknown: 'nieznany model',
       sp_checking: 'sprawdzanie…', sp_supported: 'obsługiwany', sp_unsupported: 'nieobsługiwany', sp_silent: 'brak odpowiedzi',
-      use_speaker: 'Wybierz ten głośnik', use_aria: 'Wybierz głośnik {0}',
+      use_speaker: 'Wybierz ten głośnik', use_aria: 'Wybierz głośnik {0}', chosen_btn: 'Wybrany', chosen_aria: 'Wybrany: {0}',
       r_no_console: 'Jego konsola serwisowa nie odpowiada. Nowsze modele (WiFi Speaker V3, PRO 2, iO1) nie są jeszcze obsługiwane; jeśli to WiFi Speaker V2, WiFi PRO lub Micro Subwoofer, uruchom go ponownie i poszukaj jeszcze raz.',
       r_not_found: 'Pod tym adresem nic nie odpowiada. Sprawdź adres i czy głośnik jest włączony.',
       r_unsupported_model: 'Ten model nie jest jeszcze obsługiwany: Lithify działa z WiFi Speaker V2, WiFi PRO i Micro Subwoofer.',
@@ -285,7 +285,7 @@
       name_label: 'Nazwa w Spotify', name_help: 'Od 1 do 64 znaków.',
       name_bad: 'Podaj nazwę głośnika od 1 do 64 znaków.',
       name_summary: 'Głośnik: {0}, {1}, adres {2}',
-      before_install: 'Pierwsza instalacja trwa 15–30 minut. Nie wyłączaj ani nie usypiaj komputera i nie zamykaj tej strony ani okna Lithify.',
+      before_install: 'Pierwsza instalacja trwa 15–40 minut. Nie wyłączaj ani nie usypiaj komputera i nie zamykaj tej strony ani okna Lithify.',
       hint_windows: 'Windows może zapytać, czy Lithify może wprowadzić zmiany (reguła zapory, aby głośnik mógł pobrać oprogramowanie z tego komputera): wybierz „Tak”.',
       hint_macos: 'Jeśli macOS zapyta, czy Python może przyjmować przychodzące połączenia sieciowe, wybierz „Pozwalaj”: głośnik pobiera oprogramowanie z tego komputera.',
       hint_linux: 'Jeśli na tym komputerze działa zapora (ufw, firewalld), głośnik musi mieć do niego dostęp na portach TCP {0}.',
@@ -294,7 +294,7 @@
       install_title: 'Instalacja na: {0}', now: 'Teraz: {0}', now_step: '{0}: {1}', elapsed: 'Czas: {0}',
       ph_prepare: 'Przygotowanie', ph_build: 'Budowanie oprogramowania głośnika', ph_install: 'Instalacja na głośniku',
       ph_restart: 'Ponowne uruchamianie głośnika', ph_check: 'Sprawdzanie i zakończenie',
-      ph_build_note: 'Pierwsza kompilacja trwa 10–20 minut; kolejne są dużo szybsze.',
+      ph_build_note: 'Pierwsza kompilacja trwa 10–30 minut; kolejne są dużo szybsze.',
       ph_restart_note: 'Około minuty bez dźwięku.',
       ph_check_note: 'Lithify ustawia też na tym komputerze swojego pomocnika, dzięki któremu głośnik można aktualizować.',
       ps_pending: 'czeka', ps_active: 'w toku', ps_done: 'gotowe', ps_skipped: 'niepotrzebne', ps_failed: 'przerwane',
@@ -446,7 +446,7 @@
     return data;
   }
 
-  const STEPS = ['welcome', 'computer', 'speaker', 'name', 'install', 'done'];
+  const STEPS = ['welcome', 'computer', 'speaker', 'install', 'done'];
   const PHASES = ['prepare', 'build', 'install', 'restart', 'check'];
   const NOTES = { build: 'ph_build_note', restart: 'ph_restart_note', check: 'ph_check_note' };
   // Which step shows what went wrong in a task.
@@ -528,7 +528,7 @@
       drawn.rev = st.rev;
       drawn.lang = LANG;
       drawSteps();
-      ({ welcome: drawWelcome, computer: drawComputer, speaker: drawSpeaker, name: drawName, install: drawInstall,
+      ({ welcome: drawWelcome, computer: drawComputer, speaker: drawSpeaker, install: drawInstall,
         done: drawDone })[st.step]();
       drawError(force);
       tellChanges();
@@ -678,14 +678,15 @@
         reason: el('p', { class: 'hint' }), use: el('button', { type: 'button', class: 'primary' }) };
       const li = el('li', { class: 'speaker' }, el('h3', {}, r.name, r.pill),
         el('dl', {}, r.dtModel, r.model, r.dtAddr, r.addr, r.dtLithify, r.lithify), r.reason, r.use);
-      r.use.addEventListener('click', () => act('/api/step', { step: 'name', host: li.dataset.key }));
+      r.use.addEventListener('click', () => act('/api/choose', { host: li.dataset.key }));
       refs.set(li, r);
       return li;
     }, (li, s) => {
       const r = refs.get(li);
       const quiet = silent(s);
       const name = quiet ? s.host : s.name || t('unnamed');
-      setClass(li, `speaker ${s.supported ? 'ok' : ''}`.trim());
+      const chosen = Boolean(s.supported && st.chosen && st.chosen.host === s.host);
+      setClass(li, `speaker ${s.supported ? 'ok' : ''} ${chosen ? 'chosen' : ''}`.trim().replace(/\s+/g, ' '));
       setText(r.name, name);
       pill(r.pill, t(verdict(s)), s.supported == null ? '' : s.supported ? 'ok' : quiet ? 'warn' : 'bad');
       setText(r.dtModel, t('k_model'));
@@ -700,17 +701,23 @@
       const why = s.supported === false && s.reason_key ? t(`r_${s.reason_key}`, s.reason) : '';
       setText(r.reason, why);
       setProp(r.reason, 'hidden', !why);
-      setText(r.use, t('use_speaker'));
-      r.use.setAttribute('aria-label', t('use_aria', name));
+      setText(r.use, t(chosen ? 'chosen_btn' : 'use_speaker'));
+      r.use.setAttribute('aria-label', t(chosen ? 'chosen_aria' : 'use_aria', name));
+      r.use.setAttribute('aria-pressed', String(chosen));
       setProp(r.use, 'hidden', !s.supported);
       setProp(r.use, 'disabled', running());
     });
     setProp($('btn-search'), 'disabled', running());
     setProp($('btn-add'), 'disabled', running());
+    drawChoose();
   }
 
-  function drawName() {
+  // Under the list: the chosen speaker's name in Spotify, and the button that installs.
+  function drawChoose() {
     const c = st.chosen || {};
+    const ok = Boolean(c.host && st.speakers.some((s) => s.host === c.host && s.supported));
+    setProp($('choose'), 'hidden', !ok);
+    if (!ok) return;
     const input = $('spotify-name');
     if (nameFor !== c.host) { // (once per speaker: what is typed is never overwritten)
       input.value = c.spotify_name || c.default_name || '';
@@ -774,7 +781,7 @@
     setProp(cancel, 'hidden', !live);
     setProp(cancel, 'disabled', Boolean(task && task.cancelled));
     setText(cancel, task && task.cancelled ? t('stopping') : t('cancel'));
-    setProp($('btn-back-name'), 'hidden', live || !task);
+    setProp($('btn-back-install'), 'hidden', live || !task);
     if (task) setLog(task.lines);
   }
 
@@ -987,7 +994,6 @@
     'back-speaker': () => act('/api/step', { step: 'speaker' }),
     install,
     cancel,
-    'back-name': () => act('/api/step', { step: 'name' }),
     'copy-log': (b) => copy(st && st.task ? st.task.lines.join('\n') : '', 'copied_log', b),
     another: () => act('/api/discover'),
     finish,

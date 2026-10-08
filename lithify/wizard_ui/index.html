@@ -28,9 +28,8 @@
       <li data-step="welcome"><span class="num" aria-hidden="true">1</span><span class="label" data-t="step_welcome">Welcome</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
       <li data-step="computer"><span class="num" aria-hidden="true">2</span><span class="label" data-t="step_computer">Computer</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
       <li data-step="speaker"><span class="num" aria-hidden="true">3</span><span class="label" data-t="step_speaker">Speaker</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
-      <li data-step="name"><span class="num" aria-hidden="true">4</span><span class="label" data-t="step_name">Name</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
-      <li data-step="install"><span class="num" aria-hidden="true">5</span><span class="label" data-t="step_install">Install</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
-      <li data-step="done"><span class="num" aria-hidden="true">6</span><span class="label" data-t="step_done">Done</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
+      <li data-step="install"><span class="num" aria-hidden="true">4</span><span class="label" data-t="step_install">Install</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
+      <li data-step="done"><span class="num" aria-hidden="true">5</span><span class="label" data-t="step_done">Done</span><span class="sr-only" data-t="step_completed" hidden>completed</span></li>
     </ol>
   </nav>
   <div id="announce" class="sr-only" role="status"></div>
@@ -80,6 +79,24 @@
     <h2 id="h-speaker" tabindex="-1" data-t="speaker_title">Choose your speaker</h2>
     <p id="speaker-status" class="msg" hidden></p>
     <ul id="speakers" class="speakers"></ul>
+    <div id="choose" class="choose" hidden>
+      <h3 id="h-name" data-t="name_title">Name in Spotify</h3>
+      <p data-t="name_lead">This is how the speaker will be listed in the Spotify app.</p>
+      <p id="name-current" class="msg" hidden></p>
+      <p id="name-official" class="hint" hidden></p>
+      <div class="field">
+        <label for="spotify-name" data-t="name_label">Name in Spotify</label>
+        <input id="spotify-name" type="text" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="name-err name-help">
+        <p id="name-err" class="field-err" data-t="name_bad" hidden>Give the speaker a name of 1 to 64 characters.</p>
+        <p id="name-help" class="hint" data-t="name_help">1 to 64 characters.</p>
+      </div>
+      <p id="name-summary" class="summary"></p>
+      <p class="hint" data-t="before_install">The first installation takes 15–40 minutes.</p>
+      <p id="name-os" class="hint"></p>
+      <div class="actions">
+        <button type="button" id="btn-install" class="primary big" data-act="install" data-t="install_btn">Install</button>
+      </div>
+    </div>
     <div class="errslot"></div>
     <div class="manual">
       <label for="manual-host" data-t="manual_label">Or type the speaker’s address</label>
@@ -96,27 +113,6 @@
     </div>
   </section>
 
-  <section class="card step" id="s-name" data-step="name" aria-labelledby="h-name" hidden>
-    <h2 id="h-name" tabindex="-1" data-t="name_title">Name in Spotify</h2>
-    <p class="lead" data-t="name_lead">This is how the speaker will be listed in the Spotify app.</p>
-    <p id="name-current" class="msg" hidden></p>
-    <p id="name-official" class="hint" hidden></p>
-    <div class="field">
-      <label for="spotify-name" data-t="name_label">Name in Spotify</label>
-      <input id="spotify-name" type="text" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="name-err name-help">
-      <p id="name-err" class="field-err" data-t="name_bad" hidden>Give the speaker a name of 1 to 64 characters.</p>
-      <p id="name-help" class="hint" data-t="name_help">1 to 64 characters.</p>
-    </div>
-    <p id="name-summary" class="summary"></p>
-    <p class="hint" data-t="before_install">The first installation takes 15–30 minutes.</p>
-    <p id="name-os" class="hint"></p>
-    <div class="errslot"></div>
-    <div class="actions">
-      <button type="button" data-act="back-speaker" data-t="back">Back</button>
-      <button type="button" id="btn-install" class="primary big" data-act="install" data-t="install_btn">Install</button>
-    </div>
-  </section>
-
   <section class="card step" id="s-install" data-step="install" aria-labelledby="h-install" hidden>
     <h2 id="h-install" tabindex="-1"></h2>
     <p id="install-now" class="now" hidden></p>
@@ -124,7 +120,7 @@
     <ol id="phases" class="phases"></ol>
     <div class="errslot"></div>
     <div class="actions">
-      <button type="button" id="btn-back-name" data-act="back-name" data-t="back" hidden>Back</button>
+      <button type="button" id="btn-back-install" data-act="back-speaker" data-t="back" hidden>Back</button>
       <button type="button" id="btn-cancel" data-act="cancel" data-t="cancel">Cancel</button>
     </div>
     <details id="log-box" class="log">

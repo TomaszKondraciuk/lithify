@@ -571,22 +571,26 @@ class Wizard:
         return 202, {"started": True, "host": host}
 
     def set_step(self, body: dict) -> tuple[int, dict]:
-        """Go back, or on to the name once a supported speaker is chosen. The installation and the
-        result are steps the wizard takes itself."""
+        """Go back. (The installation and the result are steps the wizard takes itself.)"""
         step = body.get("step")
         with self.lock:
             if self.task and not self.task.finished and self.task.kind == "install":
                 return BUSY
-            if step == "name":
-                found = self._supported(body.get("host") or (self.chosen or {}).get("host"))
-                if found is None:
-                    return 400, {"error": "choose a supported speaker", "error_key": "bad_speaker"}
-                self.chosen = self._choose(found)
-            elif step not in ("welcome", "computer", "speaker"):
+            if step not in ("welcome", "computer", "speaker"):
                 return 400, {"error": f"no step {step!r} to go to", "error_key": "bad_step"}
             self.step = step
             self._changed()
         return 200, {"step": step}
+
+    def choose(self, body: dict) -> tuple[int, dict]:
+        """The speaker to install on (its name and the Install button show under the list)."""
+        with self.lock:
+            found = self._supported(check_host(body.get("host")))
+            if found is None:
+                return 400, {"error": "choose a supported speaker", "error_key": "bad_speaker"}
+            self.chosen = self._choose(found)
+            self._changed()
+        return 200, {"chosen": found["host"]}
 
     def install(self, body: dict) -> tuple[int, dict]:
         name = check_name(body.get("name"))
@@ -695,6 +699,26 @@ class Wizard:
         with self.lock:
             self.computer = result
         self._finish(True)
+        self._on_if_ready(result)
+
+    def _on_if_ready(self, result: dict) -> None:
+        """Everything is fine on this computer: on to the speakers without a click (a warning or a
+        problem stays on the screen)."""
+        if all(c["status"] == "ok" for c in result["checks"]) and not self.stopping.is_set():
+            self._begin("discover", self._run_discover, step="speaker")
+
+    def _pick(self, typed: str | None = None) -> None:
+        """The speaker to install on, once the search is done: a typed address when it is supported,
+        else the one chosen before while it is still there, else the only supported one."""
+        with self.lock:
+            ok = [s for s in self.speakers if s.get("supported")]
+            keep = typed or (self.chosen or {}).get("host")
+            found = next((s for s in ok if s["host"] == keep), None)
+            if found is None and len(ok) == 1:
+                found = ok[0]
+            if found is not None or not typed:
+                self.chosen = self._choose(found) if found else None
+            self._changed()
 
     def _run_start_docker(self) -> None:
         if not open_docker_desktop():
@@ -715,6 +739,7 @@ class Wizard:
         with self.lock:
             self.computer = result
         self._finish(True)
+        self._on_if_ready(result)
 
     def _run_discover(self) -> None:
         found = discovery.discover()
@@ -726,10 +751,12 @@ class Wizard:
             self._changed()
         self._line(f"found {len(found)} Lithe Audio speaker(s): {', '.join(hosts) or '-'}")
         self._probe_all(hosts, with_info=False)
+        self._pick()
         self._finish(True)
 
     def _run_probe(self, host: str) -> None:
         self._probe_all([host], with_info=True)
+        self._pick(typed=host)
         self._finish(True)
 
     def _probe_all(self, hosts: list[str], with_info: bool) -> None:
@@ -841,6 +868,7 @@ class Wizard:
 ACTIONS: dict[str, Callable[[Wizard, dict], tuple[int, dict]]] = {
     "/api/check-computer": Wizard.check_computer, "/api/start-docker": Wizard.start_docker,
     "/api/discover": Wizard.discover, "/api/add-host": Wizard.add_host, "/api/step": Wizard.set_step,
+    "/api/choose": Wizard.choose,
     "/api/install": Wizard.install, "/api/cancel": Wizard.cancel, "/api/quit": Wizard.quit,
 }
 

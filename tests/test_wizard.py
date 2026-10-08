@@ -539,7 +539,9 @@ class StateTest(ServerCase):
         self.assertEqual(st["firewall"]["ports"], "8095,18096-18099")
 
     def test_a_task_reports_its_lines_and_how_it_ended(self):
-        with mock.patch.object(wizard, "docker_state", return_value=("ok", "27.3.1")):
+        # (a warning about the disk: the wizard stays on the computer's step, so it can be read)
+        with mock.patch.object(wizard, "docker_state", return_value=("ok", "27.3.1")), \
+                mock.patch.object(wizard, "DISK_MIN", 1 << 62):
             self.assertEqual(self.api("POST", "/api/check-computer", {})[0], 202)
             st = self.finished()
         task = st["task"]
@@ -550,6 +552,15 @@ class StateTest(ServerCase):
         self.assertEqual([c["key"] for c in st["computer"]["checks"]], ["python", "docker", "disk", "bundle"])
         rev = st["rev"]
         self.assertEqual(self.api("GET", "/api/state")[1]["rev"], rev)  # (nothing changed: the page draws nothing)
+
+    def test_a_computer_that_has_everything_goes_on_to_the_speakers(self):
+        with mock.patch.object(wizard, "docker_state", return_value=("ok", "27.3.1")), \
+                mock.patch.object(wizard, "DISK_MIN", 0), \
+                mock.patch.object(discovery, "discover", return_value=[]):
+            self.assertEqual(self.api("POST", "/api/check-computer", {})[0], 202)
+            st = self.until(lambda st: st["task"] and st["task"]["kind"] == "discover" and st["task"]["finished"])
+        self.assertEqual((st["step"], st["searched"]), ("speaker", True))
+        self.assertTrue(all(c["status"] == "ok" for c in st["computer"]["checks"]))
 
 
 class FlowTest(ServerCase):
@@ -577,11 +588,14 @@ class FlowTest(ServerCase):
         self.assertEqual([(s["host"], s["supported"]) for s in st["speakers"]],
                          [("192.168.1.109", True), ("192.168.1.110", False)])
         self.assertEqual(st["speakers"][1]["reason_key"], "unsupported_model")
-        self.assertEqual(self.api("POST", "/api/step", {"step": "name", "host": "192.168.1.110"})[0], 400)
-        status, _ = self.api("POST", "/api/step", {"step": "name", "host": "192.168.1.109"})
+        # (the only supported one is chosen by itself; another can be chosen, an unsupported one not)
+        self.assertEqual(st["chosen"]["host"], "192.168.1.109")
+        self.assertEqual(self.api("POST", "/api/choose", {"host": "192.168.1.110"})[0], 400)
+        status, _ = self.api("POST", "/api/choose", {"host": "192.168.1.109"})
         self.assertEqual(status, 200)
         chosen = self.api("GET", "/api/state")[1]["chosen"]
         self.assertEqual((chosen["default_name"], chosen["official_name"]), ("Kuchnia (librespot)", "Kuchnia"))
+        self.assertEqual(self.api("POST", "/api/step", {"step": "name"})[0], 400)  # (no such step any more)
 
     def install(self, fakes: Fakes, name: str = "Kuchnia") -> dict:
         with mock.patch.object(wizard, "stream", fakes.stream), mock.patch.object(wizard, "quick", fakes.quick):
@@ -715,8 +729,7 @@ class FlowTest(ServerCase):
         with mock.patch.object(wizard, "probe_speaker", probe):
             self.api("POST", "/api/add-host", {"host": "192.168.1.40"})
             self.finished()
-        self.assertEqual(self.api("POST", "/api/step", {"step": "name", "host": "192.168.1.40"})[0], 200)
-        chosen = self.api("GET", "/api/state")[1]["chosen"]
+        chosen = self.api("GET", "/api/state")[1]["chosen"]  # (a typed address that is supported: chosen)
         self.assertEqual((chosen["default_name"], chosen["current_name"], chosen["official_name"]),
                          ("Łazienka [Lithify]", "Łazienka [Lithify]", ""))  # (its official Spotify is hidden)
 

@@ -119,6 +119,11 @@ details.log pre { max-height: 420px; }
 .speaker dd { margin: 0; overflow-wrap: anywhere; }
 .speaker p { margin: 0; }
 .speaker button { justify-self: start; margin-top: 4px; }
+.speaker.chosen { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.speaker button[aria-pressed="true"] { background: var(--ok-bg); border-color: var(--accent); color: var(--accent); }
+.choose { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.choose h3 { margin: 0 0 4px; font-size: 17px; }
+.choose p { margin: 6px 0; }
 
 /* ── the installation ── */
 .now { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
