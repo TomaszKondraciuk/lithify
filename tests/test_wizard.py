@@ -672,6 +672,13 @@ class FlowTest(ServerCase):
         self.assertEqual([s["host"] for s in self.finished()["speakers"]], ["192.168.1.109", "192.168.1.110",
                                                                              "salon.local"])
 
+    def test_the_official_spotify_is_listed_only_when_discovery_met_it(self):
+        self.assertTrue(wizard._speaker({**SPEAKER, "found_by": "spotify"})["official_listed"])
+        self.assertTrue(wizard._speaker(SPEAKER)["official_listed"])
+        for by in ("lithify", "libre"):
+            self.assertFalse(wizard._speaker({**SPEAKER, "found_by": by})["official_listed"], by)
+        self.assertFalse(wizard._speaker(SPEAKER, manual=True)["official_listed"])
+
     def test_a_typo_is_refused_and_a_silent_address_gives_way_to_the_next(self):
         for host in ("192.168.0", "192.168.0.256", "1234", "192.168.000.1"):
             with self.subTest(host=host):

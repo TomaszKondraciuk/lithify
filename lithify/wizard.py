@@ -491,11 +491,13 @@ class Task:
 
 
 def _speaker(found: dict, manual: bool = False) -> dict:
-    """A speaker in the list. One found by discovery answered as the official Spotify (TCP 9095),
-    under its name: that entry stays in the Spotify apps next to Lithify's."""
+    """A speaker in the list. One that discovery found through the official Spotify (TCP 9095)
+    answered under its name: that entry stays in the Spotify apps next to Lithify's. (Found through
+    Lithify's page or as a Cast speaker, its official Spotify does not answer: hidden, or stopped.)"""
     name = found.get("name") or ""
+    listed = not manual and found.get("found_by", "spotify") == "spotify"
     return {"host": found["host"], "name": name, "model": found.get("model") or "", "official_name": name,
-            "official_listed": not manual, "librespot_name": "", "librespot_version": "", "supported": None,
+            "official_listed": listed, "librespot_name": "", "librespot_version": "", "supported": None,
             "reason_key": None, "reason": "", "platform": None, "manual": manual}
 
 

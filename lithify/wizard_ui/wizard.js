@@ -48,6 +48,7 @@
       welcome_need: 'You need',
       n_1: 'the speaker switched on, on the same network as this computer;',
       n_2: 'Docker Desktop on this computer (the next step checks it and shows where to get it).',
+      n_2_linux: 'Docker on this computer (the next step checks it and shows how to install it).',
       start: 'Start',
 
       computer_title: 'Checking this computer', computer_lead: 'Lithify needs a few things on this computer.',
@@ -214,6 +215,7 @@
       welcome_need: 'Potrzebne będą',
       n_1: 'włączony głośnik w tej samej sieci co ten komputer;',
       n_2: 'Docker Desktop na tym komputerze (następny krok to sprawdzi i pokaże, skąd go pobrać).',
+      n_2_linux: 'Docker na tym komputerze (następny krok to sprawdzi i pokaże, jak go zainstalować).',
       start: 'Zaczynamy',
 
       computer_title: 'Sprawdzanie komputera', computer_lead: 'Lithify potrzebuje na tym komputerze kilku rzeczy.',
@@ -516,12 +518,17 @@
       drawn.rev = st.rev;
       drawn.lang = LANG;
       drawSteps();
-      ({ welcome() {}, computer: drawComputer, speaker: drawSpeaker, name: drawName, install: drawInstall,
+      ({ welcome: drawWelcome, computer: drawComputer, speaker: drawSpeaker, name: drawName, install: drawInstall,
         done: drawDone })[st.step]();
       drawError(force);
       tellChanges();
     }
     tick();
+  }
+
+  // (Docker Desktop on Windows and macOS; on Linux the distribution's Docker)
+  function drawWelcome() {
+    setText($('need-docker'), t(has(`n_2_${st.os}`) ? `n_2_${st.os}` : 'n_2'));
   }
 
   function drawSteps() {
