@@ -25,7 +25,7 @@
 #   LITHIFY_NO_WIZARD=1  the terminal instead of the browser wizard
 #   LITHIFY_NO_SETUP=1   only steps 1-3
 #   LITHIFY_HOME         Lithify's folder (~/.local/share/lithify); LITHIFY_BIN: the command's (~/.local/bin)
-#   LITHIFY_REPO         git URL; LITHIFY_ARCHIVE_URL: the .tar.gz or .zip to use without git
+#   LITHIFY_REPO         git URL; LITHIFY_ARCHIVE_URL: the .tar.gz or .zip to use instead of git
 #   LITHIFY_TOOLS        where the private Python goes (~/.local/share/lithify-tools)
 #   LITHIFY_LANG         the language of the messages: pl or en (otherwise this computer's)
 set -eu
@@ -465,7 +465,7 @@ get_lithify() {
       || die "$(L "cannot copy $copy_from to $DEST" "nie można skopiować $copy_from do $DEST")"
   else
     got=0
-    if have_git; then
+    if [ -z "${LITHIFY_ARCHIVE_URL:-}" ] && have_git; then  # (an archive named is the one to use)
       say "$(L "downloading Lithify with git into $DEST" "pobieranie Lithify przez git do $DEST")"
       if GIT_TERMINAL_PROMPT=0 git clone -q --depth 1 --config core.autocrlf=false "$REPO_URL" "$new" </dev/null; then
         got=1
@@ -562,13 +562,29 @@ with open(sys.argv[1], "rb") as f:
     print(tomllib.load(f).get("release", {}).get("url") or "")' "$DEST/versions.toml" 2>/dev/null || true
 }
 
+# "Update everything" on the speaker's page builds on this computer, with Docker and git: the ones
+# missing, when the install itself needs neither.
+updates_tip() {
+  docker_path
+  tip_docker=0 tip_git=0
+  if command -v docker >/dev/null 2>&1; then tip_docker=1; fi
+  if have_git; then tip_git=1; fi
+  case $tip_docker$tip_git in
+    11) return 0 ;;
+    10) tip_en="git" tip_pl="musi być git" ;;
+    01) tip_en="Docker" tip_pl="musi być Docker" ;;
+    *) tip_en="Docker and git" tip_pl="muszą być Docker i git" ;;
+  esac
+  warn "$(L "to build updates later (\"Update everything\" on the speaker's page), this computer needs $tip_en" \
+            "aby później budować aktualizacje (\"Zaktualizuj wszystko\" na stronie głośnika), na tym komputerze $tip_pl")"
+}
+
 build_tools() {
   if bundle_ready; then
     say "$(L "a prebuilt Lithify bundle is already on this computer ($CACHE/bundle)" \
              "gotowa paczka Lithify dla głośnika jest już na tym komputerze ($CACHE/bundle)")"
     info "$(L "Docker and git are not needed for this install." "Docker i git nie są potrzebne do tej instalacji.")"
-    warn "$(L "to build updates later (\"Update everything\" on the speaker's page), this computer needs Docker and git" \
-              "aby później budować aktualizacje (\"Zaktualizuj wszystko\" na stronie głośnika), na tym komputerze muszą być Docker i git")"
+    updates_tip
     return 0
   fi
   release=$(release_url)
@@ -578,10 +594,7 @@ build_tools() {
                "gotowa paczka Lithify jest opublikowana: instalacja ją pobierze ($release)")"
       info "$(L "Docker and git are needed only when that download fails (Lithify is built here then)." \
                 "Docker i git są potrzebne tylko wtedy, gdy to pobieranie się nie uda (wtedy Lithify zostanie zbudowany na tym komputerze).")"
-      if ! docker_ok || ! have_git; then
-        warn "$(L "to build updates later (\"Update everything\" on the speaker's page), this computer needs Docker and git" \
-                  "aby później budować aktualizacje (\"Zaktualizuj wszystko\" na stronie głośnika), na tym komputerze muszą być Docker i git")"
-      fi
+      updates_tip
       return 0
       ;;
     *) ;;

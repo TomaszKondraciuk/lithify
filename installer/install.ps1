@@ -25,7 +25,7 @@
 #              speaker's address: no search, no wizard), LITHIFY_NAME (its name in Spotify),
 #              LITHIFY_NO_WIZARD=1 (this window instead of the browser), LITHIFY_NO_SETUP=1 (only
 #              steps 1-3), LITHIFY_HOME (install dir), LITHIFY_REPO (git URL), LITHIFY_ARCHIVE_URL
-#              (the .zip to use without git).
+#              (the .zip to use instead of git).
 
 & {
     # Native programs report through their exit codes ($LASTEXITCODE), checked after each one:
@@ -379,7 +379,7 @@
         $stage = New-TempDir
         try {
             $new = $null
-            if ($git) {
+            if ($git -and -not $env:LITHIFY_ARCHIVE_URL) {  # (an archive named is the one to use)
                 Say (L "downloading Lithify with git into $Dest", "pobieranie Lithify przez git do $Dest")
                 # LF line endings exactly as published: the speaker runs some of these files.
                 git clone -q --depth 1 --config core.autocrlf=false $Repo (P $stage 'lithify')
@@ -600,12 +600,10 @@
     # or published (Docker Desktop and Git are needed then only when its download fails).
     function Test-BuildHere([string]$dest) {
         $bundle = P $Cache 'bundle'
-        $tip = (L 'to build updates later ("Update everything" on the speaker''s page), this computer needs Docker Desktop and Git',
-                  'żeby później budować aktualizacje ("Zaktualizuj wszystko" na stronie głośnika), ten komputer potrzebuje Docker Desktop i Gita')
         if (Test-Path -LiteralPath (P $bundle 'VERSIONS')) {
             Say (L "a prebuilt Lithify bundle is already on this computer ($bundle)", "gotowa paczka Lithify jest już na tym komputerze ($bundle)")
             Info (L 'Docker Desktop and Git are not needed for this install.', 'Docker Desktop i Git nie są potrzebne do tej instalacji.')
-            if (-not (Test-BuildTools)) { Warn $tip }
+            Show-UpdatesTip
             return $false
         }
         $release = Get-ReleaseUrl $dest
@@ -614,16 +612,22 @@
                    "gotowa paczka Lithify jest opublikowana: instalacja ją pobierze ($release)")
             Info (L 'Docker Desktop and Git are needed only when that download fails (Lithify is built here then).',
                     'Docker Desktop i Git są potrzebne tylko wtedy, gdy to pobieranie się nie uda (paczka powstaje wtedy tutaj).')
-            if (-not (Test-BuildTools)) { Warn $tip }
+            Show-UpdatesTip
             return $false
         }
         return $true
     }
 
-    # Git and a docker are installed (running or not: Docker Desktop starts when a build needs it).
-    function Test-BuildTools {
+    # "Update everything" on the speaker's page builds on this computer, with Git and a docker
+    # (installed, running or not: Docker Desktop starts when a build needs it): the ones missing.
+    function Show-UpdatesTip {
         Add-DockerPath
-        return [bool]((Find-Git) -and ((Find-DockerDesktop) -or (Get-Command docker -ErrorAction SilentlyContinue)))
+        $docker = [bool]((Find-DockerDesktop) -or (Get-Command docker -ErrorAction SilentlyContinue))
+        $git = [bool](Find-Git)
+        if ($docker -and $git) { return }
+        $what = if ($docker) { L 'Git', 'Gita' } elseif ($git) { 'Docker Desktop' } else { L 'Docker Desktop and Git', 'Docker Desktop i Gita' }
+        Warn (L "to build updates later (`"Update everything`" on the speaker's page), this computer needs $what",
+                "żeby później budować aktualizacje (`"Zaktualizuj wszystko`" na stronie głośnika), ten komputer potrzebuje $what")
     }
 
     # What is missing: python, git, docker, wsl, firewall (true), blocks (the rules' names).
