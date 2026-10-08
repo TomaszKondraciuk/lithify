@@ -531,9 +531,11 @@
     return kb >= 1024 ? `${Math.round(kb / 1024)} MB` : `${kb} kB`;
   }
 
+  // Dates and numbers in the page's language: English in the browser's own variant (en-US, en-GB, …),
+  // or en-GB when the browser speaks another language (no Polish month names in English text).
+  const LOCALE = LANG === 'pl' ? 'pl-PL' : /^en\b/i.test(navigator.language || '') ? navigator.language : 'en-GB';
   // Times arrive in UTC ("2026-10-07T09:26:07Z", "2026-10-06 22:39:25Z"); people read them in their
   // own: today's as the time alone, older ones with the day.
-  const LOCALE = LANG === 'pl' ? 'pl-PL' : undefined;
   function when(stamp) {
     const d = stamp ? new Date(String(stamp).trim().replace(' ', 'T')) : null;
     if (!d || Number.isNaN(d.getTime())) return stamp || '?';
