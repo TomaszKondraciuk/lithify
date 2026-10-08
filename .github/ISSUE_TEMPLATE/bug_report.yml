@@ -1,0 +1,57 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please check [troubleshooting](https://github.com/OWNER/lithify/blob/main/docs/troubleshooting.md) first.
+        **Do not paste raw logs from the speaker without reading them:** its own Spotify client writes your Spotify login into them.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: model
+    attributes:
+      label: Speaker
+      options:
+        - Wi-Fi Ceiling Speaker V2
+        - WiFi PRO
+        - Micro Subwoofer
+        - Other (write it below)
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Computer
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it happened
+      options:
+        - Installer
+        - Wizard in the browser
+        - The speaker's web page
+        - Playing music
+        - The lithify command
+        - Somewhere else
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `lithify status`
+      render: text
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Screenshots, the installer's last lines, the steps that make it happen again.

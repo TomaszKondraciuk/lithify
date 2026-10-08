@@ -20,7 +20,7 @@ jobs:
       - name: The launchers and installers know where Lithify is
         # (they download from the repository: its address replaces the placeholder, see docs/releasing.md)
         run: |
-          if grep -rln "OWNER/lithify" Lithify-Windows.cmd Lithify-macOS.command Lithify-Linux.sh installer README.md docs versions.toml; then
+          if grep -rln "OWNER/lithify" Lithify-Windows.cmd Lithify-macOS.command Lithify-Linux.sh installer README.md docs .github/ISSUE_TEMPLATE versions.toml; then
             echo "::error::the files above still name OWNER/lithify: run .github/scripts/go-public.py first (docs/releasing.md)"
             exit 1
           fi
