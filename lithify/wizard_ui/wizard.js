@@ -43,12 +43,14 @@
       w_2: 'It builds the software for the speaker – the first time this takes 10–30 minutes – and installs it over the network.',
       w_3: 'The speaker restarts once and is silent for about a minute.',
       w_time: 'All in all about 15–40 minutes the first time; later updates take a few minutes.',
+      w_2_ready: 'It installs the ready-made software on the speaker over the network.',
+      w_time_ready: 'All in all a few minutes.',
       welcome_safe: 'Nothing is flashed',
       w_safe: 'The speaker keeps its own firmware, Google Cast and AirPlay. Lithify runs next to them and can be removed again at any time.',
       welcome_need: 'You need',
-      n_1: 'the speaker switched on, on the same network as this computer;',
-      n_2: 'Docker Desktop on this computer (the next step checks it and shows where to get it).',
-      n_2_linux: 'Docker on this computer (the next step checks it and shows how to install it).',
+      n_1: 'the speaker switched on, on the same network as this computer',
+      n_2: 'Docker Desktop on this computer (the next step checks it and shows where to get it)',
+      n_2_linux: 'Docker on this computer (the next step checks it and shows how to install it)',
       start: 'Start',
 
       computer_title: 'Checking this computer', computer_lead: 'Lithify needs a few things on this computer.',
@@ -114,6 +116,7 @@
       name_bad: 'Give the speaker a name of 1 to 64 characters.',
       name_summary: 'Speaker: {0}, {1}, at {2}',
       before_install: 'The first installation takes 15–40 minutes. Keep this computer switched on and awake, and leave this page and the Lithify window open.',
+      before_install_ready: 'The installation takes a few minutes. Keep this computer switched on and awake, and leave this page and the Lithify window open.',
       hint_windows: 'Windows may ask whether Lithify may make changes (a firewall rule, so the speaker can download its software from this computer): choose “Yes”.',
       hint_macos: 'If macOS asks whether Python may accept incoming network connections, choose “Allow”: the speaker downloads its software from this computer.',
       hint_linux: 'If this computer runs a firewall (ufw, firewalld), the speaker must reach it on TCP ports {0}.',
@@ -123,6 +126,7 @@
       ph_prepare: 'Preparing', ph_build: 'Building the speaker software', ph_install: 'Installing on the speaker',
       ph_restart: 'Restarting the speaker', ph_check: 'Checking and finishing',
       ph_build_note: 'The first build takes 10–30 minutes; later ones are much faster.',
+      ph_download: 'Downloading the speaker software',
       ph_restart_note: 'About a minute without sound.',
       ph_check_note: 'Lithify also sets up its helper on this computer, which keeps the speaker updatable.',
       ps_pending: 'waiting', ps_active: 'in progress', ps_done: 'done', ps_skipped: 'not needed', ps_failed: 'stopped',
@@ -215,12 +219,14 @@
       w_2: 'Zbuduje oprogramowanie dla głośnika – za pierwszym razem trwa to 10–30 minut – i zainstaluje je przez sieć.',
       w_3: 'Głośnik raz uruchomi się ponownie i przez około minutę nie będzie grał.',
       w_time: 'Łącznie za pierwszym razem około 15–40 minut; późniejsze aktualizacje trwają kilka minut.',
+      w_2_ready: 'Zainstaluje przez sieć gotowe oprogramowanie na głośniku.',
+      w_time_ready: 'Łącznie kilka minut.',
       welcome_safe: 'Bez wgrywania firmware',
       w_safe: 'Głośnik zachowuje swój firmware, Google Cast i AirPlay. Lithify działa obok nich i w każdej chwili można go usunąć.',
       welcome_need: 'Potrzebne będą',
-      n_1: 'włączony głośnik w tej samej sieci co ten komputer;',
-      n_2: 'Docker Desktop na tym komputerze (następny krok to sprawdzi i pokaże, skąd go pobrać).',
-      n_2_linux: 'Docker na tym komputerze (następny krok to sprawdzi i pokaże, jak go zainstalować).',
+      n_1: 'włączony głośnik w tej samej sieci co ten komputer',
+      n_2: 'Docker Desktop na tym komputerze (następny krok to sprawdzi i pokaże, skąd go pobrać)',
+      n_2_linux: 'Docker na tym komputerze (następny krok to sprawdzi i pokaże, jak go zainstalować)',
       start: 'Zaczynamy',
 
       computer_title: 'Sprawdzanie komputera', computer_lead: 'Lithify potrzebuje na tym komputerze kilku rzeczy.',
@@ -286,6 +292,7 @@
       name_bad: 'Podaj nazwę głośnika od 1 do 64 znaków.',
       name_summary: 'Głośnik: {0}, {1}, adres {2}',
       before_install: 'Pierwsza instalacja trwa 15–40 minut. Nie wyłączaj ani nie usypiaj komputera i nie zamykaj tej strony ani okna Lithify.',
+      before_install_ready: 'Instalacja trwa kilka minut. Nie wyłączaj ani nie usypiaj komputera i nie zamykaj tej strony ani okna Lithify.',
       hint_windows: 'Windows może zapytać, czy Lithify może wprowadzić zmiany (reguła zapory, aby głośnik mógł pobrać oprogramowanie z tego komputera): wybierz „Tak”.',
       hint_macos: 'Jeśli macOS zapyta, czy Python może przyjmować przychodzące połączenia sieciowe, wybierz „Pozwalaj”: głośnik pobiera oprogramowanie z tego komputera.',
       hint_linux: 'Jeśli na tym komputerze działa zapora (ufw, firewalld), głośnik musi mieć do niego dostęp na portach TCP {0}.',
@@ -295,6 +302,7 @@
       ph_prepare: 'Przygotowanie', ph_build: 'Budowanie oprogramowania głośnika', ph_install: 'Instalacja na głośniku',
       ph_restart: 'Ponowne uruchamianie głośnika', ph_check: 'Sprawdzanie i zakończenie',
       ph_build_note: 'Pierwsza kompilacja trwa 10–30 minut; kolejne są dużo szybsze.',
+      ph_download: 'Pobieranie oprogramowania głośnika',
       ph_restart_note: 'Około minuty bez dźwięku.',
       ph_check_note: 'Lithify ustawia też na tym komputerze swojego pomocnika, dzięki któremu głośnik można aktualizować.',
       ps_pending: 'czeka', ps_active: 'w toku', ps_done: 'gotowe', ps_skipped: 'niepotrzebne', ps_failed: 'przerwane',
@@ -449,6 +457,8 @@
   const STEPS = ['welcome', 'computer', 'speaker', 'install', 'done'];
   const PHASES = ['prepare', 'build', 'install', 'restart', 'check'];
   const NOTES = { build: 'ph_build_note', restart: 'ph_restart_note', check: 'ph_check_note' };
+  // (a published bundle is downloaded in the build's place, and nothing is compiled)
+  const phaseLabel = (p) => t(p === 'build' && st.software === 'download' ? 'ph_download' : `ph_${p}`);
   // Which step shows what went wrong in a task.
   const TASK_STEP = { check: 'computer', 'start-docker': 'computer', discover: 'speaker', probe: 'speaker', install: 'install' };
   let st = null; // the last state from the computer
@@ -536,9 +546,14 @@
     tick();
   }
 
-  // (Docker Desktop on Windows and macOS; on Linux the distribution's Docker)
+  // (Docker Desktop on Windows and macOS; on Linux the distribution's Docker. None, and a few
+  // minutes, when the speaker's software is here already or published: nothing is built.)
   function drawWelcome() {
+    const build = st.software === 'build';
+    setText($('w-2'), t(build ? 'w_2' : 'w_2_ready'));
+    setText($('w-time'), t(build ? 'w_time' : 'w_time_ready'));
     setText($('need-docker'), t(has(`n_2_${st.os}`) ? `n_2_${st.os}` : 'n_2'));
+    setProp($('need-docker'), 'hidden', !build);
   }
 
   function drawSteps() {
@@ -730,7 +745,11 @@
     setText($('name-current'), current);
     setProp($('name-current'), 'hidden', !current);
     setText($('name-summary'), t('name_summary', c.name || t('unnamed'), c.model || t('model_unknown'), c.host || ''));
-    setText($('name-os'), t(`hint_${st.os}`, ports()));
+    setText($('before-install'), t(st.software === 'build' ? 'before_install' : 'before_install_ready'));
+    // (Windows asks nothing when its firewall lets the speakers in already: the installer added the rule)
+    const hint = st.os === 'windows' && st.firewall.ready ? '' : t(`hint_${st.os}`, ports());
+    setText($('name-os'), hint);
+    setProp($('name-os'), 'hidden', !hint);
     setProp($('btn-install'), 'disabled', running());
   }
 
@@ -762,18 +781,19 @@
       const r = refs.get(li);
       const ph = task ? task.phases.find((x) => x.key === p) : { state: 'pending' };
       setClass(li, `phase ${ph.state}`);
-      setText(r.label, t(`ph_${p}`));
+      setText(r.label, phaseLabel(p));
       setText(r.state, t(`ps_${ph.state}`));
       if (ph.state === 'active') setBar(r.bar, p === 'build' && task.progress != null ? task.progress : null);
       else setBar(r.bar, ph.state === 'done' || ph.state === 'failed' ? 1 : 0);
-      const note = NOTES[p] && (ph.state === 'pending' || ph.state === 'active') ? t(NOTES[p]) : '';
+      const noted = NOTES[p] && (p !== 'build' || st.software === 'build') && (ph.state === 'pending' || ph.state === 'active');
+      const note = noted ? t(NOTES[p]) : '';
       setText(r.note, note);
       setProp(r.note, 'hidden', !note);
     });
     const live = task && !task.finished;
     const now = $('install-now');
     if (live && task.phase && PHASES.includes(task.phase)) {
-      const label = t(`ph_${task.phase}`);
+      const label = phaseLabel(task.phase);
       setText(now, t('now', task.step ? t('now_step', label, t(`sub_${task.step}`)) : label));
     }
     setProp(now, 'hidden', !live);

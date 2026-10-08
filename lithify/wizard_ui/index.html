@@ -45,16 +45,16 @@
     <h3 data-t="welcome_what">What happens</h3>
     <ol class="plain">
       <li data-t="w_1">This computer checks that it has what it needs and finds your speaker.</li>
-      <li data-t="w_2">It builds the software for the speaker and installs it over the network.</li>
+      <li id="w-2" data-t="w_2">It builds the software for the speaker and installs it over the network.</li>
       <li data-t="w_3">The speaker restarts once and is silent for about a minute.</li>
     </ol>
-    <p data-t="w_time">All in all about 15–30 minutes the first time.</p>
+    <p id="w-time" data-t="w_time">All in all about 15–30 minutes the first time.</p>
     <h3 data-t="welcome_safe">Nothing is flashed</h3>
     <p data-t="w_safe">The speaker keeps its own firmware, Google Cast and AirPlay.</p>
     <h3 data-t="welcome_need">You need</h3>
     <ul class="plain">
-      <li data-t="n_1">the speaker switched on, on the same network as this computer;</li>
-      <li id="need-docker" data-t="n_2">Docker Desktop on this computer.</li>
+      <li data-t="n_1">the speaker switched on, on the same network as this computer</li>
+      <li id="need-docker" data-t="n_2">Docker Desktop on this computer</li>
     </ul>
     <div class="errslot"></div>
     <div class="actions">
@@ -91,7 +91,7 @@
         <p id="name-help" class="hint" data-t="name_help">1 to 64 characters.</p>
       </div>
       <p id="name-summary" class="summary"></p>
-      <p class="hint" data-t="before_install">The first installation takes 15–40 minutes.</p>
+      <p id="before-install" class="hint" data-t="before_install">The first installation takes 15–40 minutes.</p>
       <p id="name-os" class="hint"></p>
       <div class="actions">
         <button type="button" id="btn-install" class="primary big" data-act="install" data-t="install_btn">Install</button>

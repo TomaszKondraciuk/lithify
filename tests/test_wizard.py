@@ -267,6 +267,15 @@ class ChecksTest(unittest.TestCase):
         self.assertTrue(got["ok"])
         self.assertEqual((got["docker"]["msg"], got["bundle"]["msg"]), ("docker_published", "bundle_published"))
 
+    def test_how_the_speakers_software_comes(self):
+        # (the page's words and times: a build takes 10-30 minutes, the rest a few)
+        self.assertEqual(wizard.software(), "build")
+        with mock.patch.object(wizard, "_published", lambda: True):
+            self.assertEqual(wizard.software(), "download")
+            (self.cache / "bundle").mkdir()
+            (self.cache / "bundle" / "VERSIONS").write_text("librespot=v0.7.1\n", encoding="utf-8")
+            self.assertEqual(wizard.software(), "ready")
+
     def test_little_disk_space_is_a_warning(self):
         usage = mock.Mock(free=2 * 1024 ** 3)
         with mock.patch.object(wizard.shutil, "disk_usage", return_value=usage):
@@ -373,7 +382,8 @@ class ServerCase(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        for target, name, value in ((bundle, "CACHE", Path(tmp.name)), (wizard, "firewall_help", lambda: FIREWALL),
+        for target, name, value in ((bundle, "CACHE", Path(tmp.name)),
+                                    (wizard, "firewall_help", lambda: dict(FIREWALL)),  # (one of its own each)
                                     (bundle, "remove_stale_containers", lambda: 0)):
             patch = mock.patch.object(target, name, value)
             patch.start()
@@ -533,7 +543,7 @@ class StateTest(ServerCase):
         status, st = self.api("GET", "/api/state")
         self.assertEqual(status, 200)
         self.assertEqual(set(st), {"rev", "now", "version", "os", "lang", "step", "task", "computer", "speakers",
-                                   "searched", "chosen", "outcome", "installed", "firewall"})
+                                   "searched", "chosen", "outcome", "installed", "firewall", "software"})
         self.assertEqual((st["step"], st["task"], st["speakers"], st["installed"]), ("welcome", None, [], False))
         self.assertEqual(st["os"], wizard.OS)
         self.assertEqual(st["firewall"]["ports"], "8095,18096-18099")
@@ -561,6 +571,18 @@ class StateTest(ServerCase):
             st = self.until(lambda st: st["task"] and st["task"]["kind"] == "discover" and st["task"]["finished"])
         self.assertEqual((st["step"], st["searched"]), ("speaker", True))
         self.assertTrue(all(c["status"] == "ok" for c in st["computer"]["checks"]))
+        self.assertNotIn("ready", st["firewall"])  # (only Windows asks for a rule)
+
+    def test_windows_says_whether_it_will_ask_for_the_firewall_rule(self):
+        for ready in (True, False):
+            with self.subTest(ready=ready), mock.patch.object(wizard, "OS", "windows"), \
+                    mock.patch.object(wizard, "docker_state", return_value=("ok", "27.3.1")), \
+                    mock.patch.object(wizard, "DISK_MIN", 1 << 62), \
+                    mock.patch.object(hostos, "firewall_ready", return_value=ready):
+                self.wiz.firewall.pop("ready", None)
+                self.assertEqual(self.api("POST", "/api/check-computer", {})[0], 202)
+                st = self.until(lambda st: "ready" in st["firewall"] and st["task"]["finished"])
+                self.assertIs(st["firewall"]["ready"], ready)
 
 
 class FlowTest(ServerCase):

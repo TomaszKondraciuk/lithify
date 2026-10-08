@@ -270,6 +270,14 @@ def _published() -> bool:
         return False
 
 
+def software() -> str:
+    """How an installation gets the speaker's software: "ready" (built or downloaded before),
+    "download" (a published bundle) or "build" (Docker builds it on this computer)."""
+    if (bundle.CACHE / "bundle" / "VERSIONS").exists():
+        return "ready"
+    return "download" if _published() else "build"
+
+
 def check_computer() -> dict:
     """What this computer has for an installation. Docker builds the speaker's software, unless a
     bundle is built already; then it is not needed. A published bundle is downloaded instead (Docker
@@ -532,6 +540,7 @@ class Wizard:
         self.outcome: dict | None = None
         self.installed = False  # an installation succeeded (the exit code)
         self.firewall = firewall_help()
+        self.software = software()  # (again at each check and installation: the page's times and words)
 
     # ── for the page ──
     def state(self) -> dict:
@@ -542,7 +551,7 @@ class Wizard:
                     "computer": copy.deepcopy(self.computer), "speakers": [dict(s) for s in self.speakers],
                     "searched": self.searched, "chosen": dict(self.chosen) if self.chosen else None,
                     "outcome": dict(self.outcome) if self.outcome else None, "installed": self.installed,
-                    "firewall": copy.deepcopy(self.firewall)}
+                    "firewall": copy.deepcopy(self.firewall), "software": self.software}
 
     def check_computer(self, _body: dict) -> tuple[int, dict]:
         return (202, {"started": True}) if self._begin("check", self._run_check, step="computer") else BUSY
@@ -604,6 +613,7 @@ class Wizard:
                 return BUSY
             self.chosen = {**self._choose(found), "spotify_name": name}
             self.outcome = None
+            self.software = software()
             self._begin("install", self._run_install, found["host"], name, step="install")
         return 202, {"started": True}
 
@@ -695,11 +705,23 @@ class Wizard:
 
     # ── the steps ──
     def _run_check(self) -> None:
+        if OS == "windows":  # (meanwhile: whether Windows will ask for the firewall rule at "Install")
+            threading.Thread(target=self._check_firewall, name="wizard-firewall", daemon=True).start()
         result = check_computer()
         with self.lock:
             self.computer = result
+            self.software = software()
         self._finish(True)
         self._on_if_ready(result)
+
+    def _check_firewall(self) -> None:
+        try:
+            ready = hostos.firewall_ready()
+        except Exception:  # noqa: BLE001 - unknown: the page says Windows may ask
+            return
+        with self.lock:
+            self.firewall["ready"] = ready
+            self._changed()
 
     def _on_if_ready(self, result: dict) -> None:
         """Everything is fine on this computer: on to the speakers without a click (a warning or a
@@ -738,6 +760,7 @@ class Wizard:
         result = check_computer()
         with self.lock:
             self.computer = result
+            self.software = software()
         self._finish(True)
         self._on_if_ready(result)
 
