@@ -278,6 +278,18 @@ class CommandTest(unittest.TestCase):
                          ["builder image: step 1 of 3", "builder image: step 2 of 3", "builder image: step 3 of 3"])
         classic = bundle.docker_steps()
         self.assertEqual(classic("Step 2/7 : RUN apt-get update"), "builder image: step 2 of 7")
+        pull = bundle.docker_steps()
+        layer_a, layer_b = "#4 sha256:a29349fc18ca24d7087a02", "#4 sha256:39d33a9fe7d7cdd99bcd8f"
+        said = [pull(line) for line in (
+            f"{layer_a}{'0' * 42} 20.97MB / 266.07MB 10.1s", f"{layer_b}{'0' * 42} 30.41MB / 407.40MB 10.1s",
+            f"{layer_a}{'0' * 42} 84.93MB / 266.07MB 81.7s", f"{layer_b}{'0' * 42} 1.2kB / 407.40MB 81.7s",
+            f"{layer_b}{'0' * 42} 88.08MB / 407.40MB 81.8s", "#4 extracting sha256:39d33a9f 2.1s",
+            f"{layer_a}{'0' * 42} 266.07MB / 266.07MB 140.2s done")]
+        self.assertEqual([pull(x) for x in ("#9 exporting to image", "#9 exporting layers", "#9 exporting to image")],
+                         ["builder image: saving it", None, None])
+        # (a note each 50 MB of all layers together; a layer's progress only counts up)
+        self.assertEqual(said, [None, "builder image: downloaded 51 MB", "builder image: downloaded 115 MB", None,
+                                "builder image: downloaded 173 MB", None, "builder image: downloaded 354 MB"])
         crates = bundle.crates_compiled(every=2)
         said = [crates(f"   Compiling crate{i} v1.0.{i}") for i in range(1, 6)]
         self.assertEqual(said, [None, "crates compiled: 2", None, "crates compiled: 4", None])

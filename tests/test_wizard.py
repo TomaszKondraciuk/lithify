@@ -76,7 +76,9 @@ class PhaseTest(unittest.TestCase):
     def test_the_bar_moves_while_the_image_builds_and_librespot_compiles(self):
         task = wizard.Task("install", 0.0)
         seen = []
-        lines = [FRESH[0], FRESH[1], *(f"    builder image: step {k} of 4" for k in range(1, 5)), FRESH[2],
+        lines = [FRESH[0], FRESH[1], "    builder image: step 1 of 4",
+                 *(f"    builder image: downloaded {mb} MB" for mb in (50, 500, 1000, 1500)),
+                 *(f"    builder image: step {k} of 4" for k in range(2, 5)), "    builder image: saving it", FRESH[2],
                  FRESH[4], *(f"    crates compiled: {n}" for n in range(10, 400, 10)), FRESH[5],
                  "    crates compiled: 10"]  # (the agent's crates do not move the bar back)
         for i, line in enumerate(lines):
@@ -84,8 +86,10 @@ class PhaseTest(unittest.TestCase):
             seen.append((task.step, task.progress))
         image = [f for s, f in seen if s == "image"]
         compile_ = [f for s, f in seen if s == "compile"]
-        self.assertEqual((image[0], round(image[-1], 2)), (0.02, 0.23))  # (step 4 of 4 has just begun)
-        self.assertEqual(len(set(image)), 4)
+        # (the base image moves the bar through the image's first 40%, its steps through the rest)
+        self.assertEqual([round(f, 3) for f in image], [0.02, 0.02, 0.027, 0.09, 0.132, 0.132, 0.174, 0.216,
+                                                        0.258, 0.278])
+        self.assertEqual((image[0], round(image[-1], 2)), (0.02, 0.28))  # (saved: just before its part's end)
         self.assertEqual((compile_[0], compile_[-1]), (0.35, 0.35 + 0.5 * 0.98))  # (never past its part)
         self.assertEqual([f for _, f in seen if f is not None], sorted(f for _, f in seen if f is not None))
         self.assertEqual(seen[-1], ("agent", 0.88))

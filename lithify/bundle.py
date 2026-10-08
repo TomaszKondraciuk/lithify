@@ -101,14 +101,36 @@ def say(msg: str) -> None:
 # prints it, and the wizard moves its progress bar by it (wizard.Task.add).
 Progress = Callable[[str], str | None]
 _DOCKER_STEP = re.compile(r"#\d+ \[(?:[^\]]* )?(\d+)/(\d+)\] |Step (\d+)/(\d+) : ")
+# BuildKit's progress of a layer it downloads: "#4 sha256:a293... 84.93MB / 266.07MB 81.7s"
+_DOCKER_LAYER = re.compile(r"#\d+ sha256:([0-9a-f]{12})[0-9a-f]* ([\d.]+)([kMG]?B) / [\d.]+[kMG]?B")
+# After its last step BuildKit saves and unpacks the image: minutes on a slow disk
+_DOCKER_SAVE = re.compile(r"#\d+ exporting to image")
+_UNITS = {"B": 1, "kB": 1e3, "MB": 1e6, "GB": 1e9}
 _COMPILING = re.compile(r"\s+Compiling \S+ v")
+DOWNLOAD_NOTE_MB = 50  # a note every 50 MB of a download: the base image of a first build is about 800 MB
 
 
 def docker_steps() -> Progress:
-    """The steps of `docker build` as they begin (BuildKit's plain output, or the classic builder's)."""
-    seen: set[tuple[str, str]] = set()
+    """The steps of `docker build` as they begin (BuildKit's plain output, or the classic builder's),
+    and how much of its base image it has downloaded (the longest part of a first build there)."""
+    seen: set[tuple[str, str] | str] = set()
+    layers: dict[str, float] = {}
+    told = 0
 
     def note(line: str) -> str | None:
+        nonlocal told
+        if layer := _DOCKER_LAYER.match(line):
+            layers[layer[1]] = max(layers.get(layer[1], 0.0), float(layer[2]) * _UNITS[layer[3]])
+            mb = int(sum(layers.values()) // 1e6)
+            if mb // DOWNLOAD_NOTE_MB > told // DOWNLOAD_NOTE_MB:
+                told = mb
+                return f"builder image: downloaded {mb} MB"
+            return None
+        if _DOCKER_SAVE.match(line):
+            if "save" in seen:
+                return None
+            seen.add("save")
+            return "builder image: saving it"
         m = _DOCKER_STEP.match(line)
         step = (m[1] or m[3], m[2] or m[4]) if m else None
         if step is None or step in seen:

@@ -90,9 +90,13 @@ _BUILD_STEPS = (("builder image", "image", 0.02), ("librespot: ", "reuse", 0.85)
                 ("bundle ready", None, 1.0), ("bundle", "bundle", 0.97))
 # How far a long step has come (bundle.docker_steps, bundle.crates_compiled), and the part of the
 # bar it moves through: the builder image up to its next step, librespot's crates likewise.
-_STEP_NOTE = re.compile(r" {4}(?:builder image: step (\d+) of (\d+)|crates compiled: (\d+))")
+_STEP_NOTE = re.compile(r" {4}(?:builder image: step (\d+) of (\d+)|crates compiled: (\d+)|"
+                        r"builder image: downloaded (\d+) MB|builder image: (saving) it)")
 _STEP_SPAN = {"image": (0.02, 0.3), "compile": (0.35, 0.85)}
 LIBRESPOT_CRATES = 290  # about how many crates a librespot build compiles (284 for librespot 0.8, 2026-10)
+# The builder image of a first build: its base image (rust-musl-cross, 780 MB in 2026-10) takes
+# the first part of that step's time, its own steps (Rust, alsa-lib) the rest.
+IMAGE_DOWNLOAD_MB, IMAGE_DOWNLOAD_PART = 800, 0.4
 # Why an installation failed, from what it printed: the first match wins (so a speaker's failed
 # download, which also says "Connection refused", is the firewall, not an unreachable speaker).
 _ERRORS = (
@@ -461,9 +465,17 @@ class Task:
     def _advance(self, m: re.Match) -> None:
         """A long step has come further: the bar moves within that step's part (never back)."""
         span = _STEP_SPAN.get(self.step or "")
-        if span is None or bool(m[1]) != (self.step == "image"):
+        if span is None or bool(m[1] or m[4] or m[5]) != (self.step == "image"):
             return
-        done = (int(m[1]) - 1) / max(1, int(m[2])) if m[1] else int(m[3]) / LIBRESPOT_CRATES  # (step k begins)
+        if m[5]:  # (saved and unpacked after its last step)
+            done = 0.92
+        elif m[4]:  # (the base image: the first part of the image's time)
+            done = IMAGE_DOWNLOAD_PART * min(int(m[4]) / IMAGE_DOWNLOAD_MB, 1.0)
+        elif m[1]:  # (step k begins; the first one is the download)
+            k, n = int(m[1]), max(1, int(m[2]))
+            done = IMAGE_DOWNLOAD_PART + (1 - IMAGE_DOWNLOAD_PART) * (k - 1) / n if k > 1 else 0.0
+        else:
+            done = int(m[3]) / LIBRESPOT_CRATES
         low, high = span
         self.progress = max(self.progress or low, low + (high - low) * min(done, 0.98))
 
