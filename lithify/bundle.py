@@ -43,6 +43,14 @@ TARGET_VOLUME_PREFIX = "lithify-target-"
 # optimised at once (fat LTO, one codegen unit: slower to build, smaller and faster to run).
 LIBRESPOT_ENV = ("RUSTFLAGS=-C target-cpu=cortex-a7 -C target-feature=+neon", "CARGO_PROFILE_RELEASE_STRIP=symbols",
                  "CARGO_PROFILE_RELEASE_LTO=fat", "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1")
+# Fat LTO (one optimisation over librespot and all its crates) makes the smallest binary, but its
+# last step holds 2.2 GB at once: a computer with 4 GB and a desktop runs out (the compiler is
+# killed, after the desktop froze). Thin LTO holds 1.2 GB, for a binary 14% larger (librespot 0.8,
+# measured 2026-10).
+LIBRESPOT_LEAN_ENV = tuple(e.replace("LTO=fat", "LTO=thin") for e in LIBRESPOT_ENV)
+FAT_LTO_MEMORY = 3 * 1024 ** 3  # free memory (swap included) below which a build starts with thin LTO
+_OUT_OF_MEMORY = re.compile(r"signal: 9, SIGKILL|out of memory|cannot allocate memory|"
+                            r"memory allocation of \d+ bytes failed", re.IGNORECASE)
 
 
 # Quick commands (versions, inspect, git) get this long; long build steps pass their own limits.
@@ -245,7 +253,9 @@ def sh(cmd: list, log: Path | None = None, check: bool = True, timeout: float | 
         _stop(container)  # Ctrl-C, or the companion stopping: the container must not run on
         raise
     if check and r.returncode != 0:
-        raise BuildError(f"{' '.join(cmd[:6])} ... failed:\n{(r.stdout + r.stderr)[-3000:]}")
+        # (137: the container's command was killed, which the system does when memory runs out)
+        killed = "\n(killed: signal: 9, SIGKILL)" if r.returncode in (137, -9) else ""
+        raise BuildError(f"{' '.join(cmd[:6])} ... failed:\n{(r.stdout + r.stderr)[-3000:]}{killed}")
     return r
 
 
@@ -506,11 +516,11 @@ def host_triple(rustc_vv: str) -> str:
                 "x86_64-unknown-linux-gnu")
 
 
-def librespot_stamp(root: Path, pins: dict, src: Path, rustc: str) -> str:
+def librespot_stamp(root: Path, pins: dict, src: Path, rustc: str, env: tuple = LIBRESPOT_ENV) -> str:
     """What librespot's binary is made from: the pins, its release profile, build/ (the builder
     image and the patches), its resolved dependencies and the compiler. The same stamp as the
     last build's: that binary is used again."""
-    h = hashlib.sha256(json.dumps(pins, sort_keys=True).encode() + " ".join(LIBRESPOT_ENV).encode())
+    h = hashlib.sha256(json.dumps(pins, sort_keys=True).encode() + " ".join(env).encode())
     for f in sources(root, "build"):
         h.update(f.read_bytes())
     h.update((src / "Cargo.lock").read_bytes() + (src / "Cargo.toml").read_bytes() + rustc.encode())
@@ -554,6 +564,43 @@ def build(force: bool = False, root: Path = ROOT, cache: Path = CACHE, latest: b
         _prune_images(image_tag(pins))
         say(f"bundle ready: {final}")
         return final
+
+
+def build_memory(img: str) -> int:
+    """The memory a build can have now, in bytes: what the system Docker runs on has free (this
+    computer, or Docker Desktop's virtual machine), swap included; 0 when it cannot be told."""
+    r = sh(["docker", "run", "--rm", img, "cat", "/proc/meminfo"], check=False)
+    kb = {}
+    for line in r.stdout.splitlines():
+        name, _, rest = line.partition(":")
+        if rest.split() and rest.split()[0].isdigit():
+            kb[name] = int(rest.split()[0])
+    return (kb.get("MemAvailable", 0) + kb.get("SwapFree", 0)) * 1024 if r.returncode == 0 else 0
+
+
+def compile_librespot(img: str, run: list, lp: dict, log: Path) -> str:
+    """Compile librespot with the profile this computer can spare the memory for: "fat", or "thin"
+    when little is free, or when the compiler was killed for memory (a second try)."""
+    free = build_memory(img)
+    lto = "thin" if 0 < free < FAT_LTO_MEMORY else "fat"
+    if lto == "thin":
+        print(f"    {free // 2 ** 20} MB of memory free: thin LTO (fat LTO wants about 3 GB at once)", flush=True)
+    say("compiling librespot (armv7, static, NEON)")
+    try:
+        _compile_librespot(run, lp, log, lto)
+    except BuildError as e:
+        if lto == "thin" or not _OUT_OF_MEMORY.search(str(e)):
+            raise
+        lto = "thin"
+        say("compiling librespot again with thin LTO, which needs less memory (the compiler ran out of it)")
+        _compile_librespot(run, lp, log, lto)
+    return lto
+
+
+def _compile_librespot(run: list, lp: dict, log: Path, lto: str) -> None:
+    env = LIBRESPOT_ENV if lto == "fat" else LIBRESPOT_LEAN_ENV
+    sh([*run, "env", *env, "cargo", "build", "--release", "--no-default-features",
+        "--features", ",".join(lp["features"])], log, timeout=3600, progress=crates_compiled())
 
 
 def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
@@ -644,19 +691,21 @@ def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
         sh([*run, "cargo", "fetch"], log, timeout=900)
     print("    " + _patch_libmdns(img, src, cache, root, log))
 
-    stamp, stamp_file = librespot_stamp(root, pins, src, rustc), cache / "librespot.stamp"
-    binary = cache / "out" / "librespot"
-    if not force and binary.exists() and stamp_file.exists() and stamp_file.read_text() == stamp:
+    # (a binary made with either profile is used again: whichever this computer could build)
+    stamps = {kind: librespot_stamp(root, pins, src, rustc, env)
+              for kind, env in (("fat", LIBRESPOT_ENV), ("thin", LIBRESPOT_LEAN_ENV))}
+    stamp_file, binary = cache / "librespot.stamp", cache / "out" / "librespot"
+    last = stamp_file.read_text() if stamp_file.exists() else ""
+    lto = next((k for k, v in stamps.items() if v == last), None) if binary.exists() and not force else None
+    if lto:
         say("librespot: sources, dependencies and toolchain unchanged, reusing the last build")
     else:
         stamp_file.unlink(missing_ok=True)
-        say("compiling librespot (armv7, static, NEON)")
-        sh([*run, "env", *LIBRESPOT_ENV, "cargo", "build", "--release", "--no-default-features",
-            "--features", ",".join(lp["features"])], log, timeout=3600, progress=crates_compiled())
+        lto = compile_librespot(img, run, lp, log)
         # Out of the volume: the next build reuses it from here.
         sh([*docker_run(img, [(target, "/target", True), (cache / "out", "/out")]),
             "cp", f"/target/{TARGET}/release/librespot", "/out/librespot"], log)
-        stamp_file.write_text(stamp)
+        stamp_file.write_text(stamps[lto])
 
     say("lithify-agent (unit tests on the host, then armv7)")
     built = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -690,6 +739,7 @@ def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
         "key_crates": " ".join(f"{c}-{'+'.join(lock_versions(lock, c))}" for c in KEY_CRATES),
         "alsa_lib": pins["alsa_lib"]["version"],
         "rust": rustc.split()[1] if len(rustc.split()) > 1 else rustc,
+        "librespot_lto": lto,
         "agent_build": agent_build,
         "built": built,
     }

@@ -90,6 +90,12 @@ class PhaseTest(unittest.TestCase):
         self.assertEqual([f for _, f in seen if f is not None], sorted(f for _, f in seen if f is not None))
         self.assertEqual(seen[-1], ("agent", 0.88))
 
+    def test_a_compiler_killed_for_memory_is_named(self):
+        lines = [FRESH[0], FRESH[1], "==> compiling librespot (armv7, static, NEON)",
+                 "error: docker run ... failed:", "error: could not compile `librespot` (bin \"librespot\")",
+                 "  process didn't exit successfully: `rustc --crate-name librespot ...` (signal: 9, SIGKILL: kill)"]
+        self.assertEqual(wizard.classify(lines, "build")[0], "build_memory")
+
     def test_windows_asking_for_the_firewall_rule_is_a_step_of_its_own(self):
         ask = f"==> {hostos.FIREWALL_ASK} to let speakers download from this computer (a firewall rule): choose Yes"
         task = wizard.Task("install", 0.0)

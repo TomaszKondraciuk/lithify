@@ -287,6 +287,38 @@ class CommandTest(unittest.TestCase):
             bundle.sh([sys.executable, "-c", code], log=Path(d) / "build.log", progress=bundle.docker_steps())
         self.assertEqual(out.getvalue(), "    builder image: step 1 of 2\n    builder image: step 2 of 2\n")
 
+    def test_librespot_is_compiled_with_what_memory_allows(self):
+        lp = {"features": ["alsa-backend"]}
+        meminfo = "MemTotal: 4000000 kB\nMemAvailable: {} kB\nSwapFree: {} kB\n"
+
+        def build(free_kb: int, swap_kb: int = 0, killed: tuple = ()):
+            runs = []
+
+            def sh(cmd, log=None, check=True, timeout=None, env=None, progress=None):
+                if cmd[-2:] == ["cat", "/proc/meminfo"]:
+                    return subprocess.CompletedProcess(cmd, 0, meminfo.format(free_kb, swap_kb), "")
+                lto = next(a.split("=")[1] for a in cmd if a.startswith("CARGO_PROFILE_RELEASE_LTO="))
+                runs.append(lto)
+                if lto in killed:
+                    raise bundle.BuildError("docker run ... failed:\nerror: could not compile `librespot`\n  process "
+                                            "didn't exit successfully: `rustc ...` (signal: 9, SIGKILL: kill)")
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+
+            with mock.patch.object(bundle, "sh", side_effect=sh), mock.patch.object(bundle, "say"), \
+                    mock.patch("sys.stdout", new_callable=io.StringIO):
+                return bundle.compile_librespot("img", ["docker", "run"], lp, Path("build.log")), runs
+
+        self.assertEqual(build(8_000_000), ("fat", ["fat"]))
+        self.assertEqual(build(1_500_000), ("thin", ["thin"]))  # (a 4 GB desktop)
+        self.assertEqual(build(1_500_000, swap_kb=4_000_000), ("fat", ["fat"]))
+        self.assertEqual(build(8_000_000, killed=("fat",)), ("thin", ["fat", "thin"]))  # (killed: once more)
+        with self.assertRaises(bundle.BuildError):
+            build(1_500_000, killed=("thin",))  # (killed with thin LTO too: the wizard says why)
+
+    def test_a_killed_command_says_so(self):
+        with self.assertRaisesRegex(bundle.BuildError, "SIGKILL"):
+            bundle.sh([sys.executable, "-c", "import sys; sys.exit(137)"])
+
     def test_a_log_that_cannot_be_written_stops_the_container_and_says_why(self):
         started, stopped = [], []
         real_start = bundle._start

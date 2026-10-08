@@ -92,7 +92,7 @@ _BUILD_STEPS = (("builder image", "image", 0.02), ("librespot: ", "reuse", 0.85)
 # bar it moves through: the builder image up to its next step, librespot's crates likewise.
 _STEP_NOTE = re.compile(r" {4}(?:builder image: step (\d+) of (\d+)|crates compiled: (\d+))")
 _STEP_SPAN = {"image": (0.02, 0.3), "compile": (0.35, 0.85)}
-LIBRESPOT_CRATES = 240  # about how many crates a librespot build compiles
+LIBRESPOT_CRATES = 290  # about how many crates a librespot build compiles (284 for librespot 0.8, 2026-10)
 # Why an installation failed, from what it printed: the first match wins (so a speaker's failed
 # download, which also says "Connection refused", is the firewall, not an unreachable speaker).
 _ERRORS = (
@@ -100,6 +100,7 @@ _ERRORS = (
     ("docker_missing", r"docker is required to build"),
     ("docker_not_running", r"cannot connect to the docker daemon|is the docker daemon running|error during connect|"
                            r"docker daemon is not running|docker_engine|dockerdesktoplinuxengine"),
+    ("build_memory", r"signal: 9, SIGKILL|out of memory|cannot allocate memory|memory allocation of \d+ bytes failed"),
     ("speaker_space", r"fail space|install failed on the speaker:[\s\S]*no space left"),
     ("no_space", r"no space left on device|not enough space on the disk|enospc|disk quota exceeded"),
     ("unsupported", r"not a supported lithe audio platform|are not supported yet"),
