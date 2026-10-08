@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Lithify from its checkout (install.sh links this file into ~/.local/bin)."""
+"""Run Lithify from its checkout (installer/install.sh puts a command for it into ~/.local/bin)."""
 import sys
 from pathlib import Path
 

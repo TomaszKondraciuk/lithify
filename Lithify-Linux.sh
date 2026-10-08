@@ -7,7 +7,7 @@
 # Widzisz ten tekst w edytorze? Zamknij go (w vimie: wpisz :q i naciśnij Enter), kliknij
 # Lithify-Linux.sh prawym przyciskiem w menedżerze plików i wybierz "Uruchom jako program".
 #
-# It runs install.sh from this folder (or downloads it when this file is on its own): that gets
+# It runs installer/install.sh from this folder (or downloads it when this file is on its own): that gets
 # the computer ready, asking before it installs anything, then opens the Lithify wizard in the
 # web browser, which finds the speaker and installs Lithify on it.
 #
@@ -15,7 +15,7 @@
 # missing, allow it first: Properties > Permissions > "Allow executing file as program", or
 # chmod +x Lithify-Linux.sh in a terminal.)
 set -u
-INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/OWNER/lithify/main/install.sh}
+INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh}
 here=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || here=$(pwd)
 self="$here/$(basename "$0")"
 
@@ -65,8 +65,8 @@ EOF
 
 LITHIFY_LAUNCHER=1
 export LITHIFY_LAUNCHER
-if [ -f "$here/install.sh" ]; then
-  sh "$here/install.sh"
+if [ -f "$here/installer/install.sh" ]; then
+  sh "$here/installer/install.sh"
   rc=$?
 else
   printf '==> downloading the installer: %s\n' "$INSTALL_URL"

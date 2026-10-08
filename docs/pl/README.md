@@ -48,13 +48,13 @@ głośnik zapamięta logowanie. Nazwę i wszystko inne zmienisz na stronie gło�
 **Jednym poleceniem** – Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/lithify/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.ps1 | iex
 ```
 
 macOS, Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
 ```
 
 Przez SSH, na Linuksie bez ekranu albo z ustawionym `LITHIFY_HOST` część z głośnikiem przebiega w

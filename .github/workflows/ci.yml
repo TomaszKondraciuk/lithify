@@ -42,24 +42,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: install.sh installs the command
+      - name: installer/install.sh installs the command
         if: runner.os != 'Windows'
         env:
           LITHIFY_NO_SETUP: "1"
           LITHIFY_YES: "1"
           LITHIFY_BIN: ${{ runner.temp }}/bin
         run: |
-          sh -n install.sh
-          sh ./install.sh
+          sh -n installer/install.sh
+          sh ./installer/install.sh
           "$LITHIFY_BIN/lithify" --help
-      - name: install.ps1 installs the command
+      - name: installer/install.ps1 installs the command
         if: runner.os == 'Windows'
         shell: powershell
         env:
           LITHIFY_NO_SETUP: "1"
           LITHIFY_YES: "1"
         run: |
-          .\install.ps1
+          .\installer\install.ps1
           & "$env:LOCALAPPDATA\lithify\bin\lithify.cmd" --help
           if ($LASTEXITCODE -ne 0) { exit 1 }
 

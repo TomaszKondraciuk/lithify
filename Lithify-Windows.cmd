@@ -1,7 +1,7 @@
 @echo off
 rem Lithify for Windows: double-click this file.
 rem
-rem It runs install.ps1 from this folder (or downloads it when this file is on its own) in Windows
+rem It runs installer\install.ps1 from this folder (or downloads it when this file is on its own) in Windows
 rem PowerShell: that gets the computer ready, asking before it installs anything, then opens the
 rem Lithify wizard in the web browser, which finds the speaker and installs Lithify on it.
 rem
@@ -26,10 +26,10 @@ set "LITHIFY_LAUNCHER=1"
 set "LITHIFY_LAUNCHER_FILE=%~f0"
 set "PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 if not exist "%PS%" set "PS=powershell.exe"
-set "URL=https://raw.githubusercontent.com/OWNER/lithify/main/install.ps1"
+set "URL=https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.ps1"
 if defined LITHIFY_INSTALL_URL set "URL=%LITHIFY_INSTALL_URL%"
-if exist "%~dp0install.ps1" "%PS%" -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
-if not exist "%~dp0install.ps1" "%PS%" -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072; try { $s = Invoke-RestMethod -UseBasicParsing '%URL%' -ErrorAction Stop } catch { Write-Host ('error: could not download the installer: ' + $_.Exception.Message) -ForegroundColor Red; exit 1 }; Invoke-Expression $s; exit $LASTEXITCODE"
+if exist "%~dp0installer\install.ps1" "%PS%" -NoProfile -ExecutionPolicy Bypass -File "%~dp0installer\install.ps1"
+if not exist "%~dp0installer\install.ps1" "%PS%" -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072; try { $s = Invoke-RestMethod -UseBasicParsing '%URL%' -ErrorAction Stop } catch { Write-Host ('error: could not download the installer: ' + $_.Exception.Message) -ForegroundColor Red; exit 1 }; Invoke-Expression $s; exit $LASTEXITCODE"
 set "RC=%ERRORLEVEL%"
 echo(
 if "%RC%"=="0" echo   Lithify is ready. Enjoy the music!

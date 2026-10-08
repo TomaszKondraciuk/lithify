@@ -1,6 +1,6 @@
 # Lithify configuration – copy to ~/.config/lithify/config.toml (or run `lithify setup`).
 # Every option below shows its default; delete what you don't change.
-# Reference: docs/configuration.md
+# Reference: configuration.md (next to this file)
 
 # ── settings for every speaker ──────────────────────────────────────────────
 [defaults.librespot]

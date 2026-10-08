@@ -1,7 +1,7 @@
 # Lithify installer for Windows:
 #
-#   irm https://raw.githubusercontent.com/OWNER/lithify/main/install.ps1 | iex
-#   .\install.ps1                     (from a checkout: uses it in place)
+#   irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex
+#   .\installer\install.ps1           (from a checkout: uses it in place)
 #   Lithify-Windows.cmd               (the same with a double-click)
 #
 # It gets this computer ready, and asks before it installs anything:
@@ -305,7 +305,8 @@
     }
 
     function Get-Lithify {
-        $here = $PSScriptRoot
+        # The Lithify folder this file is in (installer\ is in it); none when it was pasted
+        $here = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { '' }
         $copyFrom = $null
         if (Test-LithifyTree $here) {
             # A checkout run directly is used where it is; a downloaded folder (not a git checkout)
@@ -668,7 +669,7 @@
     } finally {
         foreach ($k in @($savedGitEnv.Keys)) { [Environment]::SetEnvironmentVariable($k, $savedGitEnv[$k], 'Process') }
     }
-    # Run as a file (Lithify-Windows.cmd, .\install.ps1): its exit code. Pasted (irm | iex): no
+    # Run as a file (Lithify-Windows.cmd, .\installer\install.ps1): its exit code. Pasted (irm | iex): no
     # exit, which would close the window; the code is in $LASTEXITCODE.
     if ($PSCommandPath) { exit $code }
     $global:LASTEXITCODE = $code

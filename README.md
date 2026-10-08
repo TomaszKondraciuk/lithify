@@ -81,16 +81,16 @@ already done. Lithify is copied into its own folder, so the download can be dele
 **With one command** – Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/lithify/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.ps1 | iex
 ```
 
 macOS, Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
 ```
 
-From a git checkout, `.\install.ps1` or `./install.sh` uses it in place. Over SSH, on a Linux
+From a git checkout, `.\installer\install.ps1` or `./installer/install.sh` uses it in place. Over SSH, on a Linux
 computer without a display, or with `LITHIFY_HOST` set, the speaker part runs in the terminal
 instead of the browser. Lithify comes with git when it is installed (it then updates itself),
 otherwise as GitHub's archive.

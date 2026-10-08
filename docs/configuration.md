@@ -1,5 +1,7 @@
 # Configuration
 
+A `config.toml` with every option and its default: [config.example.toml](config.example.toml).
+
 ## Where settings live
 
 **On the speaker.** Its web page (`http://<speaker>:8090`, section *Settings*) changes them, and so

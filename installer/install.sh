@@ -1,11 +1,11 @@
 #!/bin/sh
 # Lithify installer for Linux and macOS:
 #
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/install.sh | sh
-#   ./install.sh                     (from a checkout: uses it in place)
+#   curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+#   ./installer/install.sh           (from a checkout: uses it in place)
 #   Lithify-macOS.command, Lithify-Linux.sh: the same with a double-click
 #
-# (Windows: install.ps1, or Lithify-Windows.cmd.)
+# (Windows: installer/install.ps1, or Lithify-Windows.cmd.)
 #
 # It makes this computer ready, and asks before it installs anything:
 #   1. Python 3.11 or newer: the system's when it has one, otherwise a private Python 3.12 for
@@ -894,9 +894,9 @@ speaker() {
 # Windows, in Git Bash or a similar shell (Git for Windows runs .sh files on a double-click):
 # the Windows installer does the work, as a double-click on Lithify-Windows.cmd would.
 windows_installer() {
-  if [ -n "$HERE" ] && [ -f "$HERE/install.ps1" ] && command -v powershell.exe >/dev/null 2>&1; then
+  if [ -n "$HERE" ] && [ -f "$HERE/installer/install.ps1" ] && command -v powershell.exe >/dev/null 2>&1; then
     say "this is Windows: starting the Windows installer (install.ps1)"
-    ps1=$HERE/install.ps1
+    ps1=$HERE/installer/install.ps1
     if command -v cygpath >/dev/null 2>&1; then ps1=$(cygpath -w "$ps1"); fi
     exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ps1"
   fi
@@ -908,7 +908,8 @@ main() {
   if [ "${LITHIFY_LAUNCHER:-0}" != 1 ]; then
     printf 'Lithify installer: Spotify Connect (librespot) for Lithe Audio speakers\n\n'
   fi
-  if [ -f "$0" ]; then HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || HERE=""; fi
+  # HERE: the Lithify folder this script is in (installer/ is in it); none when piped into sh
+  if [ -f "$0" ]; then HERE=$(cd "$(dirname "$0")/.." 2>/dev/null && pwd -P) || HERE=""; fi
   case $OS in
     Linux | Darwin) ;;
     MINGW* | MSYS* | CYGWIN*) windows_installer ;;
