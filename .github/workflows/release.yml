@@ -71,6 +71,8 @@ jobs:
           BUNDLE: ${{ runner.temp }}/lithify-cache/bundle
         run: |
           {
+            # (the release's own notes, when docs/release-notes/<tag>.md has them)
+            if [ -f "docs/release-notes/$TAG.md" ]; then cat "docs/release-notes/$TAG.md"; echo; echo "---"; echo; fi
             echo "Windows: Lithify-Windows.cmd - macOS: Lithify-macOS.zip - Linux: Lithify-Linux.zip (see the README)."
             echo
             echo "The bundle for the speaker (the installers download it from here):"

@@ -1,0 +1,13 @@
+# Weekly pull requests for newer GitHub Actions and the agent's Rust crates. librespot's own
+# dependencies are refreshed by the build itself (`cargo update`, see docs/architecture.md).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: cargo
+    directory: /agent
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

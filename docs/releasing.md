@@ -6,9 +6,13 @@ The repository stays private until what Lithify found on the speakers has gone t
 1. `python3 .github/scripts/go-public.py <owner>/<repository>`: the launchers, the installers and
    the READMEs then download from that repository (they say `OWNER/lithify` until then), and
    `versions.toml` names the releases' bundle (`[release] url`).
-2. Commit and push that, and make the repository public. Then, in the repository's settings, turn
-   on *Private vulnerability reporting* (*Security*), which [security.md](security.md#reporting)
-   points to; GitHub offers it only for public repositories.
+2. Commit and push that, and make the repository public. Then run
+   `sh .github/scripts/after-public.sh <owner>/<repository>` once. It turns on what GitHub offers
+   only for public repositories: private vulnerability reporting (which
+   [security.md](security.md#reporting) points to), secret scanning with push protection, and a
+   rule that `main` can be neither rewritten nor deleted. Upload `docs/images/social-preview.png`
+   by hand (*Settings → General → Social preview*). Dependabot (`.github/dependabot.yml`) works
+   already.
 3. Check that the repository has the secret `LITHIFY_SIGNING_KEY`: the private key of the Ed25519
    key pair whose public half is `[release] public_key` in `versions.toml`. The release workflow
    signs `SHA256SUMS` with it and stops when it is missing or does not match. Keep a copy of it

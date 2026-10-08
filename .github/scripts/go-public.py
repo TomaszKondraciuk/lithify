@@ -18,7 +18,7 @@ from pathlib import Path
 PLACEHOLDER = b"OWNER/lithify"
 FILES = ("Lithify-Windows.cmd", "Lithify-macOS.command", "Lithify-Linux.sh", "installer/install.ps1",
          "installer/install.sh", "installer/get.ps1", "README.md", "docs/*.md", "docs/pl/*.md",
-         ".github/ISSUE_TEMPLATE/*.yml")
+         "docs/release-notes/*.md", ".github/ISSUE_TEMPLATE/*.yml")
 RELEASE_URL = re.compile(rb'(?ms)^(\[release\][^\[]*?^url\s*=\s*)"[^"]*"')
 
 
