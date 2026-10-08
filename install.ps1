@@ -46,6 +46,10 @@
     $WingetRebootInitiated = -1978334965
     $WingetCancelled = -1978334964
     $WingetAlreadyInstalled = -1978335135
+    # The exit code when Windows restarts to go on (ERROR_SUCCESS_REBOOT_REQUIRED): the launcher
+    # then says so instead of "not installed yet".
+    $RestartCode = 3010
+    $State = @{ Restarting = $false }
 
     function Say([string]$m) { Write-Host "==> $m" }
     function Info([string]$m) { Write-Host "    $m" }
@@ -446,7 +450,12 @@
     # How to start this installer again: the launcher it came from, or this file; none when pasted.
     function Get-AgainCommand {
         $launcher = $env:LITHIFY_LAUNCHER_FILE
-        if ($launcher -and (Test-Path -LiteralPath $launcher)) { return "`"$launcher`"" }
+        if ($launcher -and (Test-Path -LiteralPath $launcher)) {
+            # Through cmd.exe: opened as a file, a downloaded launcher would bring up Windows'
+            # "publisher could not be verified" question again, which was answered already.
+            $cmd = P $env:SystemRoot 'System32' 'cmd.exe'
+            return "`"$cmd`" /c `"`"$launcher`"`""
+        }
         if ($PSCommandPath) {
             $ps = P $env:SystemRoot 'System32' 'WindowsPowerShell' 'v1.0' 'powershell.exe'
             return "`"$ps`" -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
@@ -470,8 +479,11 @@
                     Set-ItemProperty -Path $key -Name 'Lithify' -Value $again -ErrorAction Stop
                     & (P $env:SystemRoot 'System32' 'shutdown.exe') /r /t 20 /c 'Lithify: restarting Windows to finish the installation'
                     if ($LASTEXITCODE -eq 0) {
+                        $State.Restarting = $true
                         Later 'Windows restarts in 20 seconds' @(
-                            'Once you sign in again, Lithify goes on by itself.',
+                            'Once you sign in again, Lithify goes on by itself in a window like this one.',
+                            '(Windows may show a welcome window of WSL then, and Docker Desktop starting: close the',
+                            'WSL window; Lithify waits for Docker Desktop.)',
                             'To stop the restart: shutdown /a (in a terminal); then restart later yourself.')
                     }
                     Remove-ItemProperty -Path $key -Name 'Lithify' -ErrorAction SilentlyContinue
@@ -604,6 +616,7 @@
         if (Use-Wizard $shim) {
             # (after installing, the wizard also sets up the helper that keeps the speaker updatable)
             Say 'opening the Lithify wizard in your web browser: it finds the speaker, asks for its name, installs'
+            Info 'A browser that starts for the first time shows its own welcome screens first: click through them.'
             & $shim wizard
             if ($LASTEXITCODE -ne 0) {
                 Fail 'Lithify was not installed on the speaker (the wizard ended before that)' @('start it again: lithify wizard   (or in this window: lithify install)')
@@ -620,7 +633,7 @@
         }
         $page = & $shim ui 2>$null
         Write-Host ''
-        Say 'done! Open Spotify and pick the speaker: "<its name> (librespot)".'
+        Say 'done! Open Spotify and pick the speaker in its list of devices (the Spotify Connect icon).'
         if ($page) { Say "its page (settings, tests, updates): $page" }
     }
 
@@ -651,7 +664,7 @@
             Write-Host $lines[0] -ForegroundColor Red
             foreach ($l in @($lines | Select-Object -Skip 1)) { Write-Host "       $l" }
         }
-        $code = 1
+        $code = if ($State.Restarting) { $RestartCode } else { 1 }
     } finally {
         foreach ($k in @($savedGitEnv.Keys)) { [Environment]::SetEnvironmentVariable($k, $savedGitEnv[$k], 'Process') }
     }

@@ -33,8 +33,9 @@ if not exist "%~dp0install.ps1" "%PS%" -NoProfile -ExecutionPolicy Bypass -Comma
 set "RC=%ERRORLEVEL%"
 echo(
 if "%RC%"=="0" echo   Lithify is ready. Enjoy the music!
-if not "%RC%"=="0" echo   Lithify is not installed yet: the messages above say why, and what to do.
-if not "%RC%"=="0" echo   You can run this again any time: it skips what is already done.
+if "%RC%"=="3010" echo   Windows restarts now. Once you sign in again, Lithify goes on by itself.
+if not "%RC%"=="0" if not "%RC%"=="3010" echo   Lithify is not installed yet: the messages above say why, and what to do.
+if not "%RC%"=="0" if not "%RC%"=="3010" echo   You can run this again any time: it skips what is already done.
 echo(
 echo   Press any key to close this window.
 pause >nul
