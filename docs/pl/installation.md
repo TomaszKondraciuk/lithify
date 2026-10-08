@@ -184,8 +184,9 @@ nie zastąpi kompilacji zrobionej na komputerze po tym wydaniu. Szczegóły (po 
    `--speaker <id>` i powtórz dla każdego.
 2. **Pomocnik.** Uruchom `lithify serve --uninstall-service`.
 3. **Pliki.** Usuń katalogi wymienione w
-   [Co się zmienia na komputerze](#co-się-zmienia-na-komputerze). Na Windowsie usuń też regułę
-   zapory „Lithify” (*Zapora Windows Defender → Ustawienia zaawansowane → Reguły przychodzące*).
+   [Co się zmienia na komputerze](#co-się-zmienia-na-komputerze). Na Windowsie usuń też reguły
+   zapory o nazwie „Lithify” (*Zapora Windows Defender → Ustawienia zaawansowane → Reguły
+   przychodzące*).
 
 Python, a także Docker i git, jeśli dodał je instalator, zostają zainstalowane. Jeśli nie są Ci
 już potrzebne, usuń je jak każdy inny program.

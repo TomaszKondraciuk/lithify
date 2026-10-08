@@ -160,16 +160,34 @@ class FirewallTest(unittest.TestCase):
             runs.append(cmd)
             return subprocess.CompletedProcess(cmd, 0, "", "")
 
+        pythons = ["C:\\py\\python.exe", "C:\\py\\pythonw.exe"]
         with mock.patch.object(hostos, "WINDOWS", True), \
+                mock.patch.object(hostos, "lithify_pythons", return_value=pythons), \
                 mock.patch.object(hostos, "firewall_rule_present", side_effect=[False, True]), \
                 mock.patch.object(hostos, "python_blocks", side_effect=[["TCP Query User{1}C:\\py\\python.exe"], []]), \
                 mock.patch.object(hostos.subprocess, "run", side_effect=run):
             self.assertTrue(hostos.ensure_firewall_rule())
         self.assertEqual(len(runs), 1)
         script = base64.b64decode(re.search(r"'-EncodedCommand','([^']+)'", runs[0][-1])[1]).decode("utf-16-le")
+        self.assertIn("& netsh 'advfirewall' 'firewall' 'delete' 'rule' 'name=Lithify'", script)
         self.assertIn("& netsh 'advfirewall' 'firewall' 'add' 'rule' 'name=Lithify'", script)
         self.assertIn("'localport=8095,18096-18099'", script)
+        # (a rule of their own for Lithify's Pythons: Windows then never asks about them, nor blocks them)
+        for p in pythons:
+            self.assertIn(f"'program={p}'", script)
         self.assertIn("Remove-NetFirewallRule -Name 'TCP Query User{1}C:\\py\\python.exe'", script)
+
+    def test_the_rule_is_there_only_with_the_ports_and_every_python(self):
+        pythons = ["C:\\Py\\python.exe", "C:\\Py\\pythonw.exe"]
+        for out, present in (("Any\nc:\\py\\PYTHON.exe\nC:\\Py\\pythonw.exe\n", True),
+                             ("Any\nC:\\Py\\python.exe\n", False),  # (the helper's pythonw.exe missing)
+                             ("C:\\Py\\python.exe\nC:\\Py\\pythonw.exe\n", False),  # (no rule for the ports)
+                             ("", False)):
+            said = subprocess.CompletedProcess([], 0, out, "")
+            with self.subTest(out=out), mock.patch.object(hostos, "WINDOWS", True), \
+                    mock.patch.object(hostos, "lithify_pythons", return_value=pythons), \
+                    mock.patch.object(hostos.subprocess, "run", return_value=said):
+                self.assertEqual(hostos.firewall_rule_present(), present)
 
     def test_nothing_is_asked_when_the_firewall_is_ready(self):
         with mock.patch.object(hostos, "WINDOWS", True), \

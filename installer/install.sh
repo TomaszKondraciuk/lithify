@@ -562,8 +562,8 @@ with open(sys.argv[1], "rb") as f:
     print(tomllib.load(f).get("release", {}).get("url") or "")' "$DEST/versions.toml" 2>/dev/null || true
 }
 
-# "Update everything" on the speaker's page builds on this computer, with Docker and git: the ones
-# missing, when the install itself needs neither.
+# Without published releases, "Update everything" on the speaker's page builds on this computer,
+# with Docker and git: the ones missing, when the install itself needs neither.
 updates_tip() {
   docker_path
   tip_docker=0 tip_git=0
@@ -584,7 +584,7 @@ build_tools() {
     say "$(L "a prebuilt Lithify bundle is already on this computer ($CACHE/bundle)" \
              "gotowa paczka Lithify dla głośnika jest już na tym komputerze ($CACHE/bundle)")"
     info "$(L "Docker and git are not needed for this install." "Docker i git nie są potrzebne do tej instalacji.")"
-    updates_tip
+    case $(release_url) in https://*) ;; *) updates_tip ;; esac
     return 0
   fi
   release=$(release_url)
@@ -594,7 +594,7 @@ build_tools() {
                "gotowa paczka Lithify jest opublikowana: instalacja ją pobierze ($release)")"
       info "$(L "Docker and git are needed only when that download fails (Lithify is built here then)." \
                 "Docker i git są potrzebne tylko wtedy, gdy to pobieranie się nie uda (wtedy Lithify zostanie zbudowany na tym komputerze).")"
-      updates_tip
+      # ("Update everything" downloads the next release too: no tip about building)
       return 0
       ;;
     *) ;;

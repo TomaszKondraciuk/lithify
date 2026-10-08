@@ -54,6 +54,12 @@ class FirewallRuleTest(unittest.TestCase):
             args.append(arg)
         self.assertEqual(args, hostos.firewall_rule_command())
 
+    def test_install_ps1_gives_lithifys_python_a_rule_of_its_own(self):
+        text = ps1_text()
+        self.assertIn('& netsh @FirewallArgs "program=$p"', text)
+        self.assertIn("$FirewallPrograms = @($((@(Get-FirewallPrograms $py)", text)
+        self.assertEqual(hostos.firewall_rule_command(program="C:\\py\\pythonw.exe")[-1], "program=C:\\py\\pythonw.exe")
+
 
 class MessagesTest(unittest.TestCase):
     def test_every_message_of_install_ps1_is_in_both_languages(self):

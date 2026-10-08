@@ -411,22 +411,31 @@ def pid_alive(pid: int) -> bool:
     return True
 
 
-def firewall_rule_command(ports: str = FIREWALL_PORTS) -> list[str]:
+def firewall_rule_command(ports: str = FIREWALL_PORTS, program: str = "") -> list[str]:
     """netsh arguments for the Windows firewall rule: speakers on the local network may reach
-    Lithify's ports on this computer (any network profile: home networks are often "public")."""
-    return ["advfirewall", "firewall", "add", "rule", f"name={FIREWALL_RULE}", "dir=in", "action=allow",
+    Lithify's ports on this computer (any network profile: home networks are often "public").
+    With `program`, the same for that program: with a rule of its own, Windows never asks whether
+    it may accept connections, so it never makes the block that asking makes (a block wins over
+    every allow, and stays when the question goes unanswered)."""
+    rule = ["advfirewall", "firewall", "add", "rule", f"name={FIREWALL_RULE}", "dir=in", "action=allow",
             "protocol=TCP", f"localport={ports}", "remoteip=localsubnet", "profile=any"]
+    return [*rule, f"program={program}"] if program else rule
 
 
 def firewall_rule_present() -> bool:
+    """The rule is there: for the ports, and for each of Lithify's Pythons."""
     if not WINDOWS:
         return True
+    want = {"any"} | {p.casefold() for p in lithify_pythons()}
+    ps = (f"Get-NetFirewallRule -DisplayName {_ps_quote(FIREWALL_RULE)} -ErrorAction SilentlyContinue | "
+          "Where-Object { $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' } | "
+          "Get-NetFirewallApplicationFilter | ForEach-Object { $_.Program }")
     try:
-        r = subprocess.run(["netsh", "advfirewall", "firewall", "show", "rule", f"name={FIREWALL_RULE}"],
-                           capture_output=True, stdin=subprocess.DEVNULL, timeout=30, **no_window())
+        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], capture_output=True,
+                           text=True, errors="replace", stdin=subprocess.DEVNULL, timeout=30, **no_window())
     except (OSError, subprocess.SubprocessError):  # (a firewall service that does not answer)
         return False
-    return r.returncode == 0
+    return want <= {line.strip().casefold() for line in r.stdout.splitlines() if line.strip()}
 
 
 def firewall_advice(lan_ip: str = "") -> str:
@@ -505,7 +514,11 @@ def ensure_firewall_rule() -> bool:
         return True
     steps = []
     if not present:
-        steps.append("& netsh " + " ".join(_ps_quote(a) for a in firewall_rule_command()))
+        # (the whole rule again: for the ports, and for each of Lithify's Pythons)
+        steps.append("& netsh 'advfirewall' 'firewall' 'delete' 'rule' " + _ps_quote(f"name={FIREWALL_RULE}")
+                     + " | Out-Null")
+        steps.extend("& netsh " + " ".join(_ps_quote(a) for a in firewall_rule_command(program=program))
+                     for program in ("", *lithify_pythons()))
     if blocks:
         steps.append("Remove-NetFirewallRule -Name " + ",".join(_ps_quote(n) for n in blocks))
     script = base64.b64encode("; ".join(steps).encode("utf-16-le")).decode("ascii")

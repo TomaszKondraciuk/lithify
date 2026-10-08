@@ -182,7 +182,8 @@ release never replaces a build made on the computer after that release. Details:
 2. **The helper.** Run `lithify serve --uninstall-service`.
 3. **The files.** Delete the folders listed in
    [What changes on the computer](#what-changes-on-the-computer). On Windows, also remove the
-   firewall rule "Lithify" (*Windows Defender Firewall → Advanced settings → Inbound Rules*).
+   firewall rules named "Lithify" (*Windows Defender Firewall → Advanced settings → Inbound
+   Rules*).
 
 Python, and Docker and git if the installer added them, stay installed. Remove them as you would
 any other program if you no longer need them.

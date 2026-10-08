@@ -501,17 +501,32 @@
 
     # ---- the firewall: the speaker downloads from this computer -------------
 
-    function Test-FirewallRule {
-        & netsh advfirewall firewall show rule "name=$FirewallRule" *> $null
-        return ($LASTEXITCODE -eq 0)
+    # Lithify's Python: the one that runs it, and its windowless twin (the helper's scheduled task).
+    function Get-FirewallPrograms([string]$py) {
+        if (-not $py) { return @() }
+        return @($py, (P (Split-Path -Parent $py) 'pythonw.exe'))
+    }
+
+    # The rule is there: for the ports, and for each of Lithify's Pythons. With a rule of its own,
+    # Windows never asks whether Python may accept connections, so it never makes the block that
+    # asking makes. (hostos.firewall_rule_present checks the same.)
+    function Test-FirewallRule([string]$py) {
+        $want = @('any') + @(Get-FirewallPrograms $py | ForEach-Object { $_.ToLowerInvariant() })
+        try {
+            $have = @(Get-NetFirewallRule -DisplayName $FirewallRule -ErrorAction Stop |
+                      Where-Object { $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' } |
+                      Get-NetFirewallApplicationFilter | ForEach-Object { "$($_.Program)".ToLowerInvariant() })
+        } catch { return $false }
+        foreach ($w in $want) { if ($have -notcontains $w) { return $false } }
+        return $true
     }
 
     # Rules that block connections to Lithify's Python (their names): Windows makes them when
     # someone answers "Cancel" as it asks whether Python may accept connections, and a block wins
     # over the rule that lets the speakers in. (hostos.python_blocks finds them the same way.)
     function Get-PythonBlocks([string]$py) {
-        if (-not $py) { return @() }
-        $progs = @($py, (P (Split-Path -Parent $py) 'pythonw.exe'))
+        $progs = @(Get-FirewallPrograms $py)
+        if (-not $progs.Count) { return @() }
         try {
             return @(Get-NetFirewallApplicationFilter -ErrorAction Stop | Where-Object { $progs -contains $_.Program } |
                      Get-NetFirewallRule -ErrorAction SilentlyContinue |
@@ -603,23 +618,24 @@
         if (Test-Path -LiteralPath (P $bundle 'VERSIONS')) {
             Say (L "a prebuilt Lithify bundle is already on this computer ($bundle)", "gotowa paczka Lithify jest już na tym komputerze ($bundle)")
             Info (L 'Docker Desktop and Git are not needed for this install.', 'Docker Desktop i Git nie są potrzebne do tej instalacji.')
-            Show-UpdatesTip
+            if (-not (Get-ReleaseUrl $dest).StartsWith('https://')) { Show-UpdatesTip }
             return $false
         }
         $release = Get-ReleaseUrl $dest
         if ($release.StartsWith('https://')) {
+            # ("Update everything" downloads the next release too: no tip about building)
             Say (L "Lithify's prebuilt bundle is published: the install downloads it ($release)",
                    "gotowa paczka Lithify jest opublikowana: instalacja ją pobierze ($release)")
             Info (L 'Docker Desktop and Git are needed only when that download fails (Lithify is built here then).',
                     'Docker Desktop i Git są potrzebne tylko wtedy, gdy to pobieranie się nie uda (paczka powstaje wtedy tutaj).')
-            Show-UpdatesTip
             return $false
         }
         return $true
     }
 
-    # "Update everything" on the speaker's page builds on this computer, with Git and a docker
-    # (installed, running or not: Docker Desktop starts when a build needs it): the ones missing.
+    # Without published releases, "Update everything" on the speaker's page builds on this computer,
+    # with Git and a docker (installed, running or not: Docker Desktop starts when a build needs it):
+    # the ones missing.
     function Show-UpdatesTip {
         Add-DockerPath
         $docker = [bool]((Find-DockerDesktop) -or (Get-Command docker -ErrorAction SilentlyContinue))
@@ -645,7 +661,8 @@
                 if (($desktop -or $needs.docker) -and -not (Test-Wsl)) { $needs.wsl = $true }
             }
         }
-        if (-not (Test-FirewallRule)) { $needs.firewall = $true }
+        # (a Python installed now needs its own rule too)
+        if (-not $py -or -not (Test-FirewallRule $py)) { $needs.firewall = $true }
         $blocks = @(Get-PythonBlocks $py)
         if ($blocks.Count) { $needs.blocks = $blocks }
         return $needs
@@ -693,7 +710,7 @@
 
     # Git, Docker Desktop, WSL and the firewall rule, in one window with administrator rights: one
     # question from Windows for all of them. Returns what each step ended with (name -> code).
-    function Invoke-AdminStep($needs) {
+    function Invoke-AdminStep($needs, [string]$py) {
         $out = P ([IO.Path]::GetTempPath()) ('lithify-admin-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.txt')
         $tasks = @('git', 'docker', 'wsl', 'firewall', 'blocks') | Where-Object { $needs[$_] }
         $winget = ''
@@ -706,6 +723,8 @@
             "`$Winget = $(Q $winget)",
             "`$Wsl = $(Q "$wsl")",
             "`$FirewallArgs = @($((@($FirewallArgs) | ForEach-Object { Q $_ }) -join ', '))",
+            "`$FirewallName = $(Q $FirewallRule)",
+            "`$FirewallPrograms = @($((@(Get-FirewallPrograms $py) | ForEach-Object { Q $_ }) -join ', '))",
             "`$Blocks = @($((@($needs.blocks) | Where-Object { $_ } | ForEach-Object { Q $_ }) -join ', '))",
             "`$Title = $(Q (L 'Lithify: installing what the speaker''s software needs (this window closes by itself)',
                                'Lithify: instalowanie tego, czego potrzebuje oprogramowanie głośnika (to okno samo się zamknie)'))",
@@ -726,7 +745,13 @@ foreach ($task in $Tasks) {
         'git' { & $Winget install -e --id Git.Git @wingetArgs; Done git $LASTEXITCODE }
         'docker' { & $Winget install -e --id Docker.DockerDesktop @wingetArgs; Done docker $LASTEXITCODE }
         'wsl' { & $Wsl --install --no-distribution; Done wsl $LASTEXITCODE }
-        'firewall' { & netsh @FirewallArgs; Done firewall $LASTEXITCODE }
+        'firewall' {
+            # (the whole rule again: for the ports, and for each of Lithify's Pythons)
+            & netsh advfirewall firewall delete rule "name=$FirewallName" *> $null
+            & netsh @FirewallArgs; $code = $LASTEXITCODE
+            foreach ($p in $FirewallPrograms) { & netsh @FirewallArgs "program=$p"; if ($LASTEXITCODE) { $code = $LASTEXITCODE } }
+            Done firewall $code
+        }
         'blocks' { Remove-NetFirewallRule -Name $Blocks -ErrorAction SilentlyContinue; Done blocks 0 }
     }
 }
@@ -791,7 +816,7 @@ Start-Sleep -Seconds 3
                         'Żeby zainstalować WSL samodzielnie: wsl --install --no-distribution (w terminalu otwartym jako administrator), potem restart.')
             }
         }
-        if (($needs.firewall -and -not (Test-FirewallRule)) -or ($needs.blocks -and @(Get-PythonBlocks $py).Count)) {
+        if (($needs.firewall -and -not (Test-FirewallRule $py)) -or ($needs.blocks -and @(Get-PythonBlocks $py).Count)) {
             Warn (L 'the firewall rule was not added: Windows asks for it again when the wizard installs',
                     'reguła zapory nie została dodana: Windows zapyta o nią ponownie podczas instalacji w kreatorze')
         }
@@ -839,8 +864,8 @@ Start-Sleep -Seconds 3
         return $false
     }
 
-    function Install-OnSpeaker([string]$shim) {
-        if (-not (Test-FirewallRule)) {
+    function Install-OnSpeaker([string]$shim, [string]$py) {
+        if (-not (Test-FirewallRule $py)) {
             Info (L "Windows asks once to let the speaker reach this computer through the firewall ($PortsText): choose ""Yes"".",
                     "Windows raz zapyta, czy głośnik może łączyć się z tym komputerem przez zaporę ($PortsText): wybierz ""Tak"".")
         }
@@ -960,14 +985,14 @@ Start-Sleep -Seconds 3
         $shim = Install-Command $py $dest | Select-Object -Last 1
         if ($setup) {
             if (Test-NeedsAdmin $needs) {
-                $codes = Invoke-AdminStep $needs
+                $codes = Invoke-AdminStep $needs $py
                 if (Confirm-AdminStep $needs $codes $py) {
                     Stop-ForRestart (L 'Windows needs a restart to finish installing WSL and Docker Desktop.',
                                        'Windows musi się uruchomić ponownie, żeby dokończyć instalację WSL i Docker Desktop.')
                 }
             }
             if ($build) { Start-Docker }
-            Install-OnSpeaker $shim
+            Install-OnSpeaker $shim $py
         }
     } catch {
         $lines = @("$($_.Exception.Message)" -split "`n")

@@ -92,15 +92,10 @@ The speaker downloads Lithify from your computer on TCP 8095 and 18096–18099. 
 this before it changes anything. When the check fails, it stops with "the speaker cannot download
 from this computer" and says what to do on your system. Common causes:
 
-- **Windows:** the firewall rule "Lithify" is missing, because the permission question was
-  answered with *No*. Run the installer again and answer *Yes*. Or, in PowerShell opened as
-  administrator:
-
-  ```powershell
-  netsh advfirewall firewall add rule name=Lithify dir=in action=allow protocol=TCP localport=8095,18096-18099 remoteip=localsubnet profile=any
-  ```
-
-  Also set the network to *Private* (*Settings → Network & internet → Properties*).
+- **Windows:** the firewall rules "Lithify" are missing, because the permission question was
+  answered with *No*, or Windows blocked Python after someone clicked *Cancel* when it asked
+  about Python. Run the installer again and answer *Yes*: it adds the rules and removes the
+  block.
 - **macOS:** the firewall is on and Python was not allowed. Open *System Settings → Network →
   Firewall → Options* and allow incoming connections for Python.
 - **Linux with ufw:** open the ports for your network. Replace `192.168.1.0/24` with yours:

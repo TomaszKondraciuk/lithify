@@ -97,15 +97,9 @@ Głośnik pobiera Lithify z Twojego komputera przez TCP 8095 i 18096–18099. In
 zanim cokolwiek zmieni. Gdy sprawdzenie się nie uda, przerywa (`the speaker cannot download from
 this computer`) i mówi, co zrobić w Twoim systemie. Częste przyczyny:
 
-- **Windows:** brakuje reguły zapory „Lithify”, bo na pytanie o zgodę padła odpowiedź *Nie*.
-  Uruchom instalator ponownie i odpowiedz *Tak*. Albo w PowerShellu uruchomionym jako
-  administrator:
-
-  ```powershell
-  netsh advfirewall firewall add rule name=Lithify dir=in action=allow protocol=TCP localport=8095,18096-18099 remoteip=localsubnet profile=any
-  ```
-
-  Ustaw też sieć jako *Prywatną* (*Ustawienia → Sieć i Internet → Właściwości*).
+- **Windows:** brakuje reguł zapory „Lithify”, bo na pytanie o zgodę padła odpowiedź *Nie*,
+  albo Windows zablokował Pythona, gdy ktoś kliknął *Anuluj* w pytaniu o Pythona. Uruchom
+  instalator ponownie i odpowiedz *Tak*: doda reguły i usunie blokadę.
 - **macOS:** zapora jest włączona, a Python nie dostał zgody. Otwórz *Ustawienia systemowe → Sieć
   → Zapora → Opcje* i pozwól Pythonowi na połączenia przychodzące.
 - **Linux z ufw:** otwórz porty dla swojej sieci. Zamień `192.168.1.0/24` na swoją:
