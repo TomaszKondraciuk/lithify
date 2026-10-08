@@ -47,55 +47,80 @@ is supported before anything is changed.
 ## Quick start
 
 You need a computer on the same network as the speaker – **Windows, macOS or Linux**. Nothing
-has to be installed first: the installer gets the computer ready and **asks before it installs
-anything**:
+has to be installed first: the installer gets the computer ready and **asks once before it
+installs anything**. Then it opens the **Lithify wizard** in the web browser, which finds the
+speaker and installs Lithify on it (the speaker restarts once). Both show their texts in Polish or
+English, as the computer is set up.
 
-- **Python 3.11 or newer** – the one the computer has; otherwise a private Python 3.12 just for
-  Lithify, without administrator rights (installed by [uv](https://docs.astral.sh/uv/); on
-  Windows, winget's Python is offered first).
-- **Docker and git**, which build Lithify for the speaker (10–20 minutes the first time; nothing
-  of them goes onto the speaker): Docker Desktop on Windows and macOS, the distribution's packages
-  on Linux. The installer offers to install and start them, and says what to do when it cannot go
-  on by itself (a restart, WSL on Windows, the `docker` group on Linux). They are not needed when
-  a prebuilt bundle is already on the computer, or published (`[release]` in `versions.toml`).
-- **The firewall** – the speaker downloads from the computer on TCP 8095 and 18096–18099. Windows
-  asks once for permission; on Linux the installer offers to open them in ufw or firewalld; on
-  macOS, click *Allow* when it asks about Python.
+### Windows
 
-Then it opens the **Lithify wizard** in the web browser: it finds the speaker, asks for its name in
-Spotify and installs Lithify (the speaker restarts once). Open Spotify, pick
-"<speaker> (librespot)" – done. Everything else, including the name, is changed on the speaker's
-web page later.
+1. Download **`Lithify-Windows.cmd`** from the [latest release](https://github.com/OWNER/lithify/releases/latest)
+   (or all of Lithify: *Code → Download ZIP*, unpacked – the file is at its top).
+2. Double-click it. Windows asks once whether to run it ("The publisher could not be verified"):
+   click *Run* (if it says "Windows protected your PC" instead: *More info → Run anyway*).
 
-**With a double-click:** download Lithify (on GitHub: *Code → Download ZIP*), unpack it and open
+The installer lists what this computer still needs (Python, Git, Docker Desktop, WSL, a firewall
+rule) and asks once; Windows then asks once for permission (*Yes*). When WSL needs a restart, it
+offers to restart and goes on by itself after you sign in again. The first time takes up to an
+hour, most of it Docker Desktop and the build.
 
-| | |
-|---|---|
-| **Windows** | `Lithify-Windows.cmd` – Windows asks once whether to run it ("The publisher could not be verified"): click *Run* (if it says "Windows protected your PC" instead: *More info → Run anyway*) |
-| **macOS** | `Lithify-macOS.command` – the first time: right-click it → *Open* → *Open* (macOS 15 and newer: *System Settings → Privacy & Security → Open Anyway*); when macOS asks whether Terminal may access the Downloads folder: *Allow* |
-| **Linux** | `Lithify-Linux.sh` – Ubuntu and other GNOME systems open it in a text editor on a double-click: close that, right-click the file → *Run as a Program* (or run `sh Lithify-Linux.sh` in a terminal) |
+In PowerShell the same is one line:
+`irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex`
 
-The window shows every step and stays open at the end. Run it again any time: it skips what is
-already done. Lithify is copied into its own folder, so the download can be deleted afterwards.
+### macOS
 
-**With one command** – Windows (PowerShell):
-
-```powershell
-irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.ps1 | iex
-```
-
-macOS, Linux:
+Open *Terminal* (⌘ Space, "Terminal"), paste this and press Return:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
 ```
+
+This way macOS asks nothing about the file. With a double-click instead: **`Lithify-macOS.zip`**
+from the [latest release](https://github.com/OWNER/lithify/releases/latest) (Safari unpacks it),
+then `Lithify-macOS.command` in it – the first time macOS blocks it: *System Settings → Privacy &
+Security → Open Anyway* (macOS 14 and older: right-click it → *Open* → *Open*), and *Allow* when
+it asks whether Terminal may access the Downloads folder.
+When macOS asks whether Python may accept incoming network connections: *Allow*.
+
+### Linux
+
+In a terminal:
+
+```sh
+wget -qO- https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+```
+
+(Ubuntu and Debian come with wget, not curl; where curl is there,
+`curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh` does
+the same.) With a double-click instead: **`Lithify-Linux.zip`** from the
+[latest release](https://github.com/OWNER/lithify/releases/latest), unpacked, then `Lithify-Linux.sh`
+in it – Ubuntu and other GNOME systems open it in a text editor: close that, right-click the file →
+*Run as a Program*.
+
+### What the installer does
+
+- **Python 3.11 or newer** – the one the computer has; otherwise Python 3.12 for this user (on
+  Windows with winget) or a private one just for Lithify (by [uv](https://docs.astral.sh/uv/)),
+  without administrator rights.
+- **Docker and git**, which build Lithify for the speaker (nothing of them goes onto the speaker):
+  Docker Desktop and WSL 2 on Windows, Docker Desktop on macOS, the distribution's packages on
+  Linux. They are not needed when a prebuilt bundle is already on the computer, or published
+  (`[release]` in `versions.toml`): the install then takes a few minutes.
+- **The firewall** – the speaker downloads from the computer on TCP 8095 and 18096–18099: a rule
+  on Windows, ufw or firewalld on Linux (when one is on); on macOS, *Allow* when it asks about Python.
+
+The terminal window shows every step and stays open at the end. Run it again any time: it skips
+what is already done. Lithify is copied into its own folder, so the download can be deleted
+afterwards. Open Spotify, pick the speaker in its list of devices – done; the name and everything
+else can be changed on the speaker's web page later.
 
 From a git checkout, `.\installer\install.ps1` or `./installer/install.sh` uses it in place. Over SSH, on a Linux
 computer without a display, or with `LITHIFY_HOST` set, the speaker part runs in the terminal
 instead of the browser. Lithify comes with git when it is installed (it then updates itself),
 otherwise as GitHub's archive.
 
-Options (environment variables): `LITHIFY_YES=1` – yes to every question; `LITHIFY_HOST=<ip>` –
+Options (environment variables): `LITHIFY_YES=1` – yes to every question; `LITHIFY_LANG=pl` or
+`en` – the language of the messages; `LITHIFY_HOST=<ip>` –
 the speaker's address; `LITHIFY_NAME` – its name in Spotify; `LITHIFY_NO_WIZARD=1` – the terminal
 instead of the browser; `LITHIFY_NO_SETUP=1` – only the `lithify` command; `LITHIFY_HOME`,
 `LITHIFY_REPO`, `LITHIFY_ARCHIVE_URL` – where Lithify goes and where it comes from.
