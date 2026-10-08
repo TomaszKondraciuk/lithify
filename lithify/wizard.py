@@ -999,6 +999,20 @@ class Server(http.server.ThreadingHTTPServer):
 
 # ── `lithify wizard` ────────────────────────────────────────────────────────
 
+LANG_POLISH = 0x15  # Windows' primary language id of Polish
+
+
+def _windows_ui_polish() -> bool | None:
+    """Is Windows shown in Polish? (Its display language, which the browser follows too, not the
+    regional format: an English Windows set up in Poland formats dates the Polish way.)"""
+    try:
+        import ctypes
+        langid = ctypes.windll.kernel32.GetUserDefaultUILanguage()  # type: ignore[attr-defined]
+    except (AttributeError, OSError):
+        return None
+    return (langid & 0x3FF) == LANG_POLISH if langid else None
+
+
 def _polish(lang: str | None) -> bool:
     """Does this computer's user read Polish? (for the few lines in the terminal)"""
     if lang:
@@ -1006,6 +1020,8 @@ def _polish(lang: str | None) -> bool:
     for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
         if os.environ.get(var):
             return os.environ[var].lower().startswith("pl")
+    if OS == "windows" and (ui := _windows_ui_polish()) is not None:
+        return ui
     with contextlib.suppress(ValueError):
         return (locale.getlocale()[0] or "").lower().startswith(("pl", "polish"))
     return False

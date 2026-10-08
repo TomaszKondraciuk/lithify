@@ -884,7 +884,7 @@ speaker() {
   fi
   page=$("$CMD" ui 2>/dev/null </dev/null || true)
   printf '\n'
-  say "done! Open Spotify and pick the speaker: \"<its name> (librespot)\"."
+  say "done! Open Spotify and pick the speaker in its list of devices (the Spotify Connect icon)."
   if [ -n "$page" ]; then say "its page (settings, tests, updates): $page"; fi
   if [ "$RELOGIN" = 1 ]; then
     warn "log out and back in once: until then the helper cannot use Docker to build updates"

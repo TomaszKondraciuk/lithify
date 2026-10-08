@@ -6,6 +6,7 @@ import contextlib
 import http.client
 import io
 import json
+import os
 import re
 import secrets
 import subprocess
@@ -728,6 +729,23 @@ class FlowTest(ServerCase):
             self.api("POST", "/api/add-host", {"host": "192.168.1.150"})
             st = self.finished()
         self.assertEqual((st["speakers"][0]["supported"], st["speakers"][0]["reason_key"]), (False, "no_answer"))
+
+
+class LanguageTest(unittest.TestCase):
+    def test_the_terminal_speaks_the_language_windows_is_shown_in(self):
+        env = {"PATH": "x"}  # (no LANG: as on Windows)
+        with mock.patch.dict(wizard.os.environ, env, clear=True), mock.patch.object(wizard, "OS", "windows"), \
+                mock.patch.object(wizard.locale, "getlocale", return_value=("Polish_Poland", "1250")):
+            with mock.patch.object(wizard, "_windows_ui_polish", return_value=False):
+                self.assertFalse(wizard._polish(None))  # (an English Windows with Polish formats)
+            with mock.patch.object(wizard, "_windows_ui_polish", return_value=True):
+                self.assertTrue(wizard._polish(None))
+            with mock.patch.object(wizard, "_windows_ui_polish", return_value=None):
+                self.assertTrue(wizard._polish(None))  # (it cannot be told: the formats then)
+        with mock.patch.dict(wizard.os.environ, {"LANG": "pl_PL.UTF-8"}, clear=True):
+            self.assertTrue(wizard._polish(None))
+            self.assertFalse(wizard._polish("en"))
+        self.assertIs(wizard._windows_ui_polish() if os.name != "nt" else None, None)
 
 
 class RunTest(unittest.TestCase):
