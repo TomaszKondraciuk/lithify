@@ -8,9 +8,8 @@ The repository stays private until what Lithify found on the speakers has gone t
    `versions.toml` names the releases' bundle (`[release] url`).
 2. Commit and push that, and make the repository public. Then run
    `sh .github/scripts/after-public.sh <owner>/<repository>` once. It turns on what GitHub offers
-   only for public repositories: private vulnerability reporting (which
-   [security.md](security.md#reporting) points to), secret scanning with push protection, and a
-   rule that `main` can be neither rewritten nor deleted. Upload `docs/images/social-preview.png`
+   only for public repositories: secret scanning with push protection, and a rule that `main` can
+   be neither rewritten nor deleted. Upload `docs/images/social-preview.png`
    by hand (*Settings → General → Social preview*). Dependabot (`.github/dependabot.yml`) works
    already.
 3. Check that the repository has the secret `LITHIFY_SIGNING_KEY`: the private key of the Ed25519

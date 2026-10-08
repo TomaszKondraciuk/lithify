@@ -19,7 +19,7 @@ the `lithify` command validate the same way.
 ```sh
 lithify settings                         # what the speaker uses now (* = not the default)
 lithify settings set name="Kuchnia" bitrate=160
-lithify settings reset-pin               # forgotten PIN (uses the service console)
+lithify settings reset-pin               # forgotten PIN
 ```
 
 ## config.toml

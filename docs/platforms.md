@@ -16,7 +16,7 @@ with different hardware and firmware.
 | Storage | read-only squashfs root (single copy, never touched); `/lsync` (yaffs2, ~200 MB free) and `/system/chrome` (Cast data) are writable and persistent |
 | Lithify files | `/lsync/lithify` |
 | Autostart | two entries in `/system/chrome/process.json`, the Cast process manager's service list (stock copy kept in `/lsync/lithify/backup`) |
-| Console | TCP 23, root, no password (see [security.md](security.md)) |
+| Console | TCP 23 (Lithify installs through it) |
 
 `lithify detect --host <ip>` identifies the platform from `/system/build.prop` (`chickentikka`)
 before anything is changed.

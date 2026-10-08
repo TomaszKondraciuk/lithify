@@ -82,7 +82,7 @@ networks must let this traffic through:
 
 | From | To | Port | Used for |
 |---|---|---|---|
-| computer | speaker | TCP 23 | installing (the speaker's service console) |
+| computer | speaker | TCP 23 | installing |
 | computer | speaker | TCP 8008 | finding the speaker and asking what it is (Google Cast) |
 | computer or phone | speaker | TCP 8090 | the speaker's web page |
 | speaker | computer | TCP 8095, 18096–18099 | downloading Lithify and its updates from the helper |
@@ -150,9 +150,8 @@ Every command: [commands.md](commands.md).
 ## Updating
 
 *Update everything* on the speaker's page installs the newest release. Running the installer
-again, or `lithify update`, does the same. The computer downloads the release over HTTPS and
-checks Lithify's signature on the release's checksums, then every file against them. The speaker installs
-it only when it is newer than what it runs, and keeps its settings. *Roll back* on the page, or
+again, or `lithify update`, does the same. The computer downloads the release and checks every
+file. The speaker installs it only when it is newer than what it runs, and keeps its settings. *Roll back* on the page, or
 `lithify rollback`, returns to the previous version.
 
 A firmware update may reset the list of programs the speaker starts, so that Lithify no longer

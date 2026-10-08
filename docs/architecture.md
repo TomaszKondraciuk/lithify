@@ -14,7 +14,7 @@
    ├─ stage ── + settings.default, install.conf,           │   silent starts, fail-fast routes)
    │            process.json (from config.toml)            └─ web page :8090 ── status · tests · updates
    │                                                                 │
-   └─ install ── HTTP (LAN) ──────────────► install.sh (root console)│
+   └─ install ── HTTP (LAN) ──────────────► install.sh (console)     │
                                             /lsync/lithify ◄──────────┘ update: companion → install.sh
  lithify serve (companion :8095) ◄──────── web page: check · build · install
 ```
@@ -81,7 +81,7 @@ A bundle carries `settings.default` (config.toml's values) and, only when sent o
    librespot and the agent are restarted.
 
 From the web page the flow is the same, with `lithify serve` staging the files and the agent
-running `install.sh` (embedded in the agent at build time) through the local root console. The
+running `install.sh` (embedded in the agent at build time) through the local service console. The
 page never changes the service list, so it never needs a reboot.
 
 ## The agent
@@ -91,12 +91,12 @@ page never changes the service list, so it never needs a reboot.
 - `exec-file` restores default signal handling (the process manager starts children with
   `SIGCHLD` ignored, which breaks librespot's event hook), pins librespot's initial volume to the
   current hardware level, points alsa-lib at its configuration, prepares librespot's download
-  tmpfs (mounted through the root console when it is missing, resized when an older version made
+  tmpfs (mounted through the service console when it is missing, resized when an older version made
   it, emptied), closes the descriptors the process manager left open and `exec`s librespot;
 - `onevent` is librespot's event hook: before librespot opens the audio device it pauses the
   Libre source that still holds it (LUCI protocol, TCP 7777);
 - `run` is the watchdog plus the web page. It talks LUCI to follow the speaker's sources and uses
-  the root console only for the two actions that need root (restarting the official client and
+  the service console only for two actions (restarting the official client and
   adding routes).
 
 How it stays light and recovers on its own:

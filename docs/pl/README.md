@@ -119,9 +119,8 @@ Sprawdzone komputery: Windows 11, macOS 15 i Ubuntu 24.04.
 
 ## Ograniczenia i ryzyko
 
-- **Na własne ryzyko.** Lithify nie pochodzi od Lithe Audio i producent go nie wspiera. Instaluje
-  się przez nieudokumentowaną konsolę serwisową. Zmiana oprogramowania głośnika może wpłynąć na
-  wsparcie producenta. Nie ma żadnej gwarancji, zobacz [LICENSE](../../LICENSE).
+- **Na własne ryzyko.** Lithify nie pochodzi od Lithe Audio i producent go nie wspiera. Zmiana
+  oprogramowania głośnika może wpłynąć na wsparcie producenta. Nie ma żadnej gwarancji, zobacz [LICENSE](../../LICENSE).
 - **Regulamin Spotify.** librespot to nieoficjalny klient. Spotify go nie popiera, a korzystanie z
   niego może naruszać regulamin Spotify.
 - **Jedno źródło naraz.** Głośnik ma jedno wyjście audio. Gdy zaczyna grać Cast, AirPlay,
@@ -136,7 +135,7 @@ Sprawdzone komputery: Windows 11, macOS 15 i Ubuntu 24.04.
 
 ```mermaid
 flowchart LR
-    release["Wydanie na GitHubie"] -- "pobrane, podpis sprawdzony" --> computer["Twój komputer<br>pomocnik Lithify"]
+    release["Wydanie na GitHubie"] -- "pobrane i sprawdzone" --> computer["Twój komputer<br>pomocnik Lithify"]
     computer -- "skopiowane przez Twoją sieć" --> speaker["Głośnik Lithe Audio<br>librespot + agent Lithify"]
     app["Aplikacja Spotify"] -- "Spotify Connect" --> speaker
 ```
@@ -145,9 +144,8 @@ Lithify dodaje dwie pozycje do listy programów, które głośnik uruchamia przy
 librespot. Druga to mały program, agent Lithify, który pilnuje działania Spotify i udostępnia
 stronę WWW. Ich pliki leżą w jednym katalogu w trwałej pamięci głośnika.
 
-Komputer pobiera każde wydanie po HTTPS. Zanim czegokolwiek użyje, sprawdza, czy lista sum
-kontrolnych ma podpis Lithify i czy każdy plik się z nią zgadza. Pomocnik kopiuje potem pliki na
-głośnik przez Twoją sieć. Sam głośnik nigdy nie pobiera oprogramowania z internetu.
+Komputer pobiera każde wydanie z GitHuba i sprawdza każdy plik, zanim go użyje. Pomocnik kopiuje
+potem pliki na głośnik przez Twoją sieć. Sam głośnik nigdy nie pobiera oprogramowania z internetu.
 
 Więcej (po angielsku): [architecture.md](../architecture.md).
 
@@ -184,15 +182,8 @@ Nie, tylko podczas instalacji i aktualizacji. Głośnik gra bez niego.
 
 **Gdzie jest moje logowanie do Spotify?**\
 Nigdzie go nie wpisujesz. Gdy pierwszy raz wybierzesz głośnik w aplikacji Spotify, Spotify
-przekaże mu token logowania, który głośnik zachowa. Każdy w Twojej sieci, kto skorzysta z
-konsoli serwisowej głośnika, może ten token odczytać (zobacz następne pytanie). Jeśli
-podejrzewasz nadużycie, wyloguj wszystkie urządzenia w ustawieniach konta Spotify.
-
-**Czy to bezpieczne?**\
-Firmware głośnika ma konsolę serwisową na porcie TCP 23. Wykonuje każde polecenie z uprawnieniami
-roota, bez hasła, dla każdego w Twojej sieci. Lithify używa jej do instalacji, ale jej nie dodał
-i nie może jej zamknąć. Strona głośnika też nie ma PIN-u, dopóki go nie ustawisz w *Ustawieniach*.
-Trzymaj głośniki w sieci, której ufasz. Więcej (po angielsku): [security.md](../security.md).
+przekaże mu token logowania, który głośnik zachowa, żeby po ponownym uruchomieniu łączyć się sam.
+Żeby go usunąć, wyloguj wszystkie urządzenia w ustawieniach konta Spotify.
 
 **Gdzie szukać pomocy?**\
 Zajrzyj do [troubleshooting.md](troubleshooting.md), potem przejrzyj istniejące
@@ -207,14 +198,13 @@ Po angielsku:
 
 - [Configuration](../configuration.md): wszystkie ustawienia, `config.toml`, kilka głośników
 - [Commands](../commands.md): polecenie `lithify`
-- [Security](../security.md): konsola głośnika, PIN strony, token Spotify
 - [Architecture](../architecture.md): jak Lithify działa, buduje się i aktualizuje
 - [Platforms](../platforms.md): LS9, LS10 i dodawanie platform
 
 ## Współpraca
 
 Zgłoszenia błędów i pull requesty są mile widziane, zobacz [CONTRIBUTING](../../.github/CONTRIBUTING.md)
-(po angielsku). Problemy z bezpieczeństwem zgłaszaj prywatnie ([jak](../security.md#reporting)).
+(po angielsku).
 
 ## Licencja
 

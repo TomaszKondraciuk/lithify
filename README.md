@@ -123,9 +123,9 @@ Tested computers: Windows 11, macOS 15 and Ubuntu 24.04.
 
 ## Limitations and risks
 
-- **Use at your own risk.** Lithify is not made or supported by Lithe Audio. It installs through a
-  service console the manufacturer did not document. Changing the speaker's software may affect
-  the manufacturer's support. There is no warranty, see [LICENSE](LICENSE).
+- **Use at your own risk.** Lithify is not made or supported by Lithe Audio. Changing the
+  speaker's software may affect the manufacturer's support. There is no warranty, see
+  [LICENSE](LICENSE).
 - **Spotify's terms.** librespot is an unofficial client. Spotify does not endorse it, and using
   it may go against Spotify's terms of use.
 - **One source at a time.** The speaker has one audio output. When Cast, AirPlay, Bluetooth or the
@@ -140,7 +140,7 @@ Tested computers: Windows 11, macOS 15 and Ubuntu 24.04.
 
 ```mermaid
 flowchart LR
-    release["GitHub release"] -- "downloaded, signature checked" --> computer["Your computer<br>Lithify helper"]
+    release["GitHub release"] -- "downloaded and checked" --> computer["Your computer<br>Lithify helper"]
     computer -- "copied over your network" --> speaker["Lithe Audio speaker<br>librespot + Lithify agent"]
     app["Spotify app"] -- "Spotify Connect" --> speaker
 ```
@@ -149,9 +149,8 @@ Lithify adds two entries to the list of programs the speaker starts at boot. One
 The other is a small program, the Lithify agent, that runs the watchdog and the web page. Their
 files live in one folder on the speaker's persistent storage.
 
-Your computer downloads each release over HTTPS. It checks that the list of checksums carries
-Lithify's signature, and that every file matches it, before it uses anything. The helper then
-copies the files to the speaker over your network. The speaker itself never downloads its
+Your computer downloads each release from GitHub and checks every file before it uses it. The
+helper then copies the files to the speaker over your network. The speaker itself never downloads its
 software from the internet.
 
 More detail: [docs/architecture.md](docs/architecture.md).
@@ -189,15 +188,8 @@ No, only during the installation and for updates. The speaker plays on its own.
 
 **Where is my Spotify login?**\
 You never type it into Lithify. The first time you pick the speaker in the Spotify app, Spotify
-gives the speaker a login token, and the speaker keeps it. Anyone on your network who can use the
-speaker's service console can read that token (see the next question). If you suspect misuse,
-sign out of all devices in your Spotify account settings.
-
-**Is it safe?**\
-The speaker's firmware has a service console on TCP port 23. It runs any command as root, with no
-password, for anyone on your network. Lithify uses it to install, but did not add it and cannot
-close it. The speaker's page also has no PIN until you set one under *Settings*. Keep the speakers
-on a network you trust. More in [docs/security.md](docs/security.md).
+gives the speaker a login token, and the speaker keeps it, so it reconnects by itself after
+restarts. To remove it, sign out of all devices in your Spotify account settings.
 
 **How do I get help?**\
 Check [docs/troubleshooting.md](docs/troubleshooting.md), then search the existing issues. If
@@ -209,14 +201,12 @@ nothing fits, open an issue and include the output of `lithify status`.
 - [Troubleshooting](docs/troubleshooting.md): speaker not found, not in Spotify, no sound, stutter
 - [Configuration](docs/configuration.md): every setting, `config.toml`, several speakers
 - [Commands](docs/commands.md): the `lithify` command line
-- [Security](docs/security.md): the speaker's console, the page's PIN, the Spotify token
 - [Architecture](docs/architecture.md): how Lithify runs, builds and updates
 - [Platforms](docs/platforms.md): LS9, LS10, and adding a platform
 
 ## Contributing
 
-Bug reports and pull requests are welcome, see [CONTRIBUTING](.github/CONTRIBUTING.md). Please
-report security problems privately ([how](docs/security.md#reporting)).
+Bug reports and pull requests are welcome, see [CONTRIBUTING](.github/CONTRIBUTING.md).
 
 ## License
 

@@ -6,8 +6,6 @@
 set -eu
 R=${1:?usage: after-public.sh <owner>/<repository>}
 
-# Security problems are reported privately (docs/security.md#reporting).
-gh api -X PUT "repos/$R/private-vulnerability-reporting"
 # Secrets pushed by mistake are found, and refused at push time.
 gh api -X PATCH "repos/$R" \
   -f 'security_and_analysis[secret_scanning][status]=enabled' \

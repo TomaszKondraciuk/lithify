@@ -26,7 +26,7 @@ The installer puts the `lithify` command on the computer. With several speakers,
 | `lithify detect [--host <address>]` | model, firmware, and whether the speaker is supported |
 | `lithify setup --host <address>` | write the configuration for a speaker by hand |
 | `lithify reboot` | restart the speaker and wait until it is back |
-| `lithify sh <command>` | run a command on the speaker as root (for experts: there is no undo) |
+| `lithify sh <command>` | run a command on the speaker (for experts: there is no undo) |
 
 ## The software for the speaker
 

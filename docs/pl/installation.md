@@ -84,7 +84,7 @@ sieci muszą przepuszczać taki ruch:
 
 | Skąd | Dokąd | Port | Do czego |
 |---|---|---|---|
-| komputer | głośnik | TCP 23 | instalacja (konsola serwisowa głośnika) |
+| komputer | głośnik | TCP 23 | instalacja |
 | komputer | głośnik | TCP 8008 | znajdowanie głośnika i pytanie, czym jest (Google Cast) |
 | komputer lub telefon | głośnik | TCP 8090 | strona WWW głośnika |
 | głośnik | komputer | TCP 8095, 18096–18099 | pobieranie Lithify i aktualizacji od pomocnika |
@@ -153,8 +153,7 @@ Wszystkie polecenia (po angielsku): [commands.md](../commands.md).
 ## Aktualizacja
 
 *Zaktualizuj wszystko* na stronie głośnika instaluje najnowsze wydanie. Ponowne uruchomienie
-instalatora albo `lithify update` robi to samo. Komputer pobiera wydanie po HTTPS, sprawdza podpis
-Lithify na liście sum kontrolnych, a potem każdy plik z tą listą. Głośnik instaluje wydanie tylko
+instalatora albo `lithify update` robi to samo. Komputer pobiera wydanie i sprawdza każdy plik. Głośnik instaluje wydanie tylko
 wtedy, gdy jest nowsze od tego, które ma, i zachowuje swoje ustawienia. *Przywróć poprzednią
 wersję* na stronie albo `lithify rollback` wraca do poprzedniej wersji.
 
