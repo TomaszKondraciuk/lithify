@@ -139,10 +139,14 @@ page's events. Correct the value and save again.
 
 ## "Update everything" failed
 
-The page shows the build's last lines. When newer librespot, alsa-lib or Rust releases do not
-build, Lithify keeps the previous versions, so the speaker is unchanged; try again later or
-report the error. A failed install leaves the running version in place, and *Roll back* returns
-to the one before.
+With releases, the computer downloads the newest one: when it cannot (no internet, GitHub out of
+reach), the page says so and the speaker keeps what it runs; try again later. Every file is checked
+against the release's checksums, and nothing is replaced unless all of them arrived intact.
+
+Without releases, the page shows the build's last lines. When newer librespot, alsa-lib or Rust
+releases do not build, Lithify keeps the previous versions, so the speaker is unchanged; try again
+later or report the error. A failed install leaves the running version in place, and *Roll back*
+returns to the one before.
 
 When the update of Lithify itself does not start, the companion goes back to the code that
 worked (`git reset --keep`, which never touches uncommitted changes in the checkout). If changes

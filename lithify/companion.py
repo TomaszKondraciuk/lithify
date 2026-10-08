@@ -75,9 +75,29 @@ def _usable(fresh: bool) -> bool:
         return age < FRESH_EVERY
     # A full answer is kept for 30 min; one with sources that did not answer for 2 min only.
     rows = _Check.result["rows"]
-    complete = bool(rows) and all(r["status"] != "unknown" for r in rows) and \
-        any(r["component"] == "dependencies" for r in rows)
+    if _Check.result.get("source") == "release":
+        complete = _Check.result.get("release") is not None
+    else:
+        complete = bool(rows) and all(r["status"] != "unknown" for r in rows) and \
+            any(r["component"] == "dependencies" for r in rows)
     return age <= (1800 if complete else 120)
+
+
+def can_build() -> bool:
+    """Can this computer build a bundle: Docker and git where a build looks for them?"""
+    return bool(shutil.which("docker") and shutil.which("git"))
+
+
+def release_check(url: str) -> dict:
+    """With releases, the newest one: what "update everything" downloads (no upstream sources)."""
+    try:
+        release, error = bundle.release_versions(url), ""
+    except (bundle.BuildError, OSError, ValueError) as e:
+        release, error = None, scrub(str(e))
+    text = (f"newest release: librespot {release.get('librespot', '?')}, built {release.get('built')}" if release
+            else f"the releases cannot be reached: {error}")
+    return {"rows": [], "text": text, "checked": _now(), "source": "release", "release": release,
+            "release_error": error}
 
 
 def check_updates(fresh: bool) -> dict:
@@ -94,9 +114,13 @@ def check_updates(fresh: bool) -> dict:
         running.wait(600)  # a check is running: its answer is this caller's too
     if result is None:
         try:
-            # The dependency check reads the build's sources: not while a build replaces them.
-            rows = updates.report(deps=not build_status()["running"])
-            result = {"rows": rows, "text": updates.format_report(rows), "checked": _now()}
+            url = bundle.release_url()
+            if url:
+                result = release_check(url)
+            else:
+                # The dependency check reads the build's sources: not while a build replaces them.
+                rows = updates.report(deps=not build_status()["running"])
+                result = {"rows": rows, "text": updates.format_report(rows), "checked": _now(), "source": "build"}
         finally:
             with _Check.lock:
                 if result is not None:
@@ -105,7 +129,7 @@ def check_updates(fresh: bool) -> dict:
                     _Check.at = time.monotonic() if _Check.generation == generation else -math.inf
                 _Check.running = None
             done.set()
-    return {**result, "bundle": bundle.read_versions(bundle.CACHE / "bundle")}
+    return {**result, "bundle": bundle.read_versions(bundle.CACHE / "bundle"), "can_build": can_build()}
 
 
 def _forget_check() -> None:
@@ -187,16 +211,18 @@ def _starts(cmd: list[str]) -> bool:
         return False
 
 
-def _run_build(latest: bool) -> None:
+def _run_build(latest: bool, release: bool = False) -> None:
     """Build in a separate `lithify build` process, so it always runs the code on disk (also
     right after Lithify updated itself). It runs in a process group of its own and ends with the
-    companion: a build that hangs, or a companion that stops, ends it with all it started."""
+    companion: a build that hangs, or a companion that stops, ends it with all it started.
+    `release`: download the newest release instead, when it is newer than the bundle here."""
     head = ""
     ok, error = False, ""
     try:
         head = updates.head(ROOT)
-        cmd = [sys.executable, str(ROOT / "bin" / "lithify"), "build", "--exit-with-parent",
-               *(["--latest"] if latest else [])]
+        lithify = [sys.executable, str(ROOT / "bin" / "lithify")]
+        cmd = ([*lithify, "fetch", "--if-newer", "--exit-with-parent"] if release
+               else [*lithify, "build", "--exit-with-parent", *(["--latest"] if latest else [])])
         # Read as it runs: its "==> step" lines tell the page where the build is.
         p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                              text=True, encoding="utf-8", errors="replace", **hostos.own_group())
@@ -553,18 +579,21 @@ def make_handler(cfg: config.Config, public_url: str, speakers: Speakers | None 
                 return self._json(200, check_updates(query.get("fresh") == ["1"]))
             if url.path == "/api/build":
                 latest = query.get("latest") == ["1"]
+                # With releases, "update everything" (latest) downloads the newest one: no Docker
+                # needed. (`lithify build --latest` on the computer still builds the newest versions.)
+                source = "release" if latest and bundle.release_url() else "build"
                 with _Build.lock:
                     busy = _Build.running
                     if not busy:
                         _update(running=True, ok=None, started=_now(), finished=None, error="", phase="starting")
                 if busy:
-                    return self._json(200, {"started": False, "running": True})
+                    return self._json(200, {"started": False, "running": True, "source": source})
                 try:
-                    threading.Thread(target=_run_build, args=(latest,), daemon=True).start()
+                    threading.Thread(target=_run_build, args=(latest, source == "release"), daemon=True).start()
                 except RuntimeError as e:
                     _update(running=False, ok=False, error=f"cannot start the build: {e}")
                     return self._json(500, {"error": f"cannot start the build: {e}"})
-                return self._json(202, {"started": True, "latest": latest})
+                return self._json(202, {"started": True, "latest": latest, "source": source})
             return self._json(404, {"error": "not found"})
 
     return Handler

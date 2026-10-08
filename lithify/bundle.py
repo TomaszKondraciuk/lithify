@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import http.client
 import http.server
 import itertools
 import json
@@ -865,8 +866,8 @@ def _download(url: str) -> bytes:
         with urllib.request.urlopen(url, timeout=120) as r:  # noqa: S310 (URL checked above)
             _https(r.geturl())  # (not redirected to plain HTTP either)
             return r.read()
-    except OSError as e:
-        raise BuildError(f"download {url} failed: {e}") from None
+    except (OSError, http.client.HTTPException) as e:  # (a cut-off reply too)
+        raise BuildError(f"download {url} failed: {e or type(e).__name__}") from None
 
 
 def fetch(url: str, cache: Path = CACHE) -> Path:
@@ -907,9 +908,36 @@ def _fetch(url: str, cache: Path) -> Path:
     return cache / "bundle"
 
 
+def release_url() -> str:
+    """Where versions.toml says Lithify's releases are ("": none, every bundle is built here)."""
+    try:
+        return load_pins().get("release", {}).get("url", "") or ""
+    except (OSError, ValueError, KeyError):
+        return ""
+
+
+def release_versions(url: str) -> dict:
+    """What the newest published bundle holds: its VERSIONS (one small download)."""
+    versions = parse_versions(_download(f"{url.rstrip('/')}/VERSIONS").decode("utf-8", "replace"))
+    if not versions.get("built"):
+        raise BuildError(f"{url.rstrip('/')}/VERSIONS does not say when it was built")
+    return versions
+
+
+def release_is_newer(release: dict, here: dict) -> bool:
+    """Is a published bundle newer than the one this computer has? By when each was built (UTC,
+    2026-10-08T08:13:19Z): one built here after the release (`lithify build --latest`) is never
+    replaced by the older release."""
+    return release.get("built", "") > here.get("built", "")
+
+
 def write_sums(d: Path, files: list[str]) -> None:
     lines = [f"{hashlib.sha256((d / f).read_bytes()).hexdigest()}  {f}\n" for f in files]
     hostos.write_lf(d / "SHA256SUMS", "".join(lines))
+
+
+def parse_versions(text: str) -> dict:
+    return dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
 
 
 def read_versions(d: Path) -> dict:
@@ -917,7 +945,7 @@ def read_versions(d: Path) -> dict:
         text = (d / "VERSIONS").read_text(encoding="utf-8")
     except FileNotFoundError:  # (none yet, or a build is swapping its bundle in right now)
         return {}
-    return dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+    return parse_versions(text)
 
 
 def stage(bundle: Path, speaker: config.Speaker, platform: platforms.Platform, stock: list[dict] | None,

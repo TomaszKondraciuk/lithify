@@ -189,10 +189,14 @@ def cmd_discover(_a, _cfg) -> int:
 
 
 def cmd_fetch(a, _cfg) -> int:
-    url = a.url or bundle.load_pins().get("release", {}).get("url", "")
+    if a.exit_with_parent:  # started by the companion: never outlive it
+        service.exit_with_parent()
+    url = a.url or bundle.release_url()
     if not url:
         print("no release URL: pass --url, or set [release] url in versions.toml")
         return 2
+    if a.if_newer and newest_here(url, bundle.read_versions(bundle.CACHE / "bundle")):
+        return 0
     d = bundle.fetch(url)
     print((d / "VERSIONS").read_text(encoding="utf-8"))
     return 0
@@ -242,15 +246,30 @@ def cmd_build(a, _cfg) -> int:
     return 0
 
 
+def newest_here(url: str, here: dict) -> bool:
+    """Is the newest release on this computer already (or a bundle built here after it)? Says so."""
+    if here and not bundle.release_is_newer(bundle.release_versions(url), here):
+        say(f"the newest release is on this computer already (built {here.get('built') or '?'})")
+        return True
+    return False
+
+
 def get_bundle(force_build: bool = False) -> None:
-    """The bundle to install: a published one when versions.toml names a release (no Docker needed),
-    otherwise - or when it cannot be downloaded - built here."""
-    url = bundle.load_pins().get("release", {}).get("url", "")
+    """The bundle to install. With a release named in versions.toml: the newest published one (no
+    Docker needed), downloaded when it is newer than the one here - so installing again updates.
+    Without one, or when it cannot be downloaded and this computer has no bundle: built here."""
+    url = bundle.release_url()
+    here = bundle.read_versions(bundle.CACHE / "bundle")
     if url and not force_build:
         try:
+            if newest_here(url, here):
+                return
             bundle.fetch(url)
             return
         except (bundle.BuildError, OSError, ValueError) as e:
+            if here:
+                say(f"the newest release could not be checked ({e}): installing the bundle this computer has")
+                return
             say(f"the published bundle could not be downloaded ({e}): building it on this computer instead")
     bundle.build()
 
@@ -272,7 +291,7 @@ def cmd_install(a, cfg) -> int:
         firewall = hostos.ensure_firewall_rule()
     b = bundle.CACHE / "bundle"
     bundle.recover_bundle()  # (a build the computer stopped while it replaced the bundle)
-    if not (b / "VERSIONS").exists() or a.build:
+    if not (b / "VERSIONS").exists() or a.build or bundle.release_url():
         get_bundle(force_build=a.build)
     say(f"installing {bundle.read_versions(b).get('librespot')} on {s.id} ({s.host}, {plat.key})")
     stock = d.stock_process_list()
@@ -510,7 +529,11 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--latest", action="store_true", help="first move to the newest stable librespot, alsa-lib, Rust")
     sp.add_argument("--no-self-update", action="store_true", help=argparse.SUPPRESS)
     sp.add_argument("--exit-with-parent", action="store_true", help=argparse.SUPPRESS)
-    add("fetch", cmd_fetch, "download a prebuilt bundle instead of building", speaker=False).add_argument("--url")
+    sp = add("fetch", cmd_fetch, "download a prebuilt bundle instead of building", speaker=False)
+    sp.add_argument("--url")
+    sp.add_argument("--if-newer", action="store_true",
+                    help="only when the release is newer than the bundle this computer has")
+    sp.add_argument("--exit-with-parent", action="store_true", help=argparse.SUPPRESS)
     for name in ("install", "update"):
         sp = add(name, cmd_install, "install or update Lithify on a speaker (finds it the first time)")
         sp.add_argument("--host", help="the speaker's address, when it is not found automatically")

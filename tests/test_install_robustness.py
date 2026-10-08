@@ -15,12 +15,48 @@ RELEASE = {"release": {"url": "https://example.org/releases/latest/download"}}
 
 
 class BundleSourceTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        patch = mock.patch.object(bundle, "CACHE", Path(tmp.name))
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def bundle_here(self, built: str) -> None:
+        (bundle.CACHE / "bundle").mkdir()
+        (bundle.CACHE / "bundle" / "VERSIONS").write_text(f"librespot=v0.8.0\nbuilt={built}\n", encoding="utf-8")
+
     def test_a_published_bundle_comes_first(self):
         with mock.patch.object(bundle, "load_pins", return_value=RELEASE), \
                 mock.patch.object(bundle, "fetch") as fetch, mock.patch.object(bundle, "build") as build:
             cli.get_bundle()
         fetch.assert_called_once_with(RELEASE["release"]["url"])
         build.assert_not_called()
+
+    def test_installing_again_takes_a_newer_release_and_keeps_the_newest(self):
+        self.bundle_here("2026-10-08T08:13:19Z")
+        for built, fetched in (("2026-11-01T10:00:00Z", True), ("2026-10-08T08:13:19Z", False),
+                               ("2026-10-01T00:00:00Z", False)):  # (newer; the same; one built here after it)
+            with self.subTest(release=built), mock.patch.object(bundle, "load_pins", return_value=RELEASE), \
+                    mock.patch.object(bundle, "release_versions", return_value={"built": built}), \
+                    mock.patch.object(bundle, "fetch") as fetch, mock.patch.object(bundle, "build") as build, \
+                    mock.patch.object(cli, "say") as said:
+                cli.get_bundle()
+            self.assertEqual(fetch.called, fetched)
+            build.assert_not_called()
+            if not fetched:
+                self.assertIn("the newest release is on this computer already", said.call_args[0][0])
+
+    def test_releases_out_of_reach_install_the_bundle_here(self):
+        self.bundle_here("2026-10-08T08:13:19Z")
+        with mock.patch.object(bundle, "load_pins", return_value=RELEASE), \
+                mock.patch.object(bundle, "release_versions", side_effect=bundle.BuildError("download failed")), \
+                mock.patch.object(bundle, "fetch") as fetch, mock.patch.object(bundle, "build") as build, \
+                mock.patch.object(cli, "say") as said:
+            cli.get_bundle()
+        fetch.assert_not_called()
+        build.assert_not_called()
+        self.assertIn("installing the bundle this computer has", said.call_args[0][0])
 
     def test_a_release_that_cannot_be_downloaded_is_built_here(self):
         with mock.patch.object(bundle, "load_pins", return_value=RELEASE), \
@@ -40,6 +76,21 @@ class BundleSourceTest(unittest.TestCase):
             cli.get_bundle(force_build=True)
         fetch.assert_not_called()
         build.assert_called_once_with()
+
+
+class FetchCommandTest(unittest.TestCase):
+    def test_if_newer_downloads_only_a_newer_release(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(bundle, "CACHE", Path(d)), \
+                mock.patch.object(bundle, "load_pins", return_value=RELEASE):
+            (Path(d) / "bundle").mkdir()
+            (Path(d) / "bundle" / "VERSIONS").write_text("built=2026-10-08T08:13:19Z\n", encoding="utf-8")
+            for built, fetched in (("2026-10-08T08:13:19Z", False), ("2026-11-01T10:00:00Z", True)):
+                with self.subTest(release=built), \
+                        mock.patch.object(bundle, "release_versions", return_value={"built": built}), \
+                        mock.patch.object(bundle, "fetch", return_value=Path(d) / "bundle") as fetch, \
+                        mock.patch.object(cli, "say"), mock.patch("sys.stdout"):
+                    self.assertEqual(cli.main(["fetch", "--if-newer"]), 0)
+                self.assertEqual(fetch.called, fetched)
 
 
 class HostTripleTest(unittest.TestCase):

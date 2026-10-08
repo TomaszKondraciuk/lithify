@@ -146,9 +146,9 @@ ui_pin = "2468"
 ## Build pins
 
 [`versions.toml`](../versions.toml) pins the tested baseline: the commit of librespot's development
-branch and the local patches on top of it, alsa-lib and the Rust toolchain. *Update everything* (or
-`lithify build --latest`) builds the branch's newest commit with the newest alsa-lib and Rust
-releases and, once the bundle built with them is in
+branch and the local patches on top of it, alsa-lib and the Rust toolchain. `lithify build
+--latest` (and *Update everything*, when `[release] url` names no releases) builds the branch's
+newest commit with the newest alsa-lib and Rust releases and, once the bundle built with them is in
 place, remembers them in `versions.toml` in the configuration directory (a build that fails or is
 stopped leaves that file as it was); a version there older than the repository's is ignored, and
 deleting the file goes back to the baseline. `lithify check-updates` lists what is newer.

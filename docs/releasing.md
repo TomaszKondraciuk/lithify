@@ -17,5 +17,8 @@ and a few minutes instead of up to an hour; the README's links point to the newe
 later release is a new tag. When the download fails, the installer builds the bundle on the
 computer as before (Docker and git are needed then).
 
-Between releases, the speaker's page ("Update everything") builds the newest versions on the
-computer, as `lithify build` does.
+Updates come the same way: "Update everything" on the speaker's page, running the installer
+again, and `lithify update` download a release that is newer than the bundle on the computer (by
+when each was built, so one built there later with `lithify build --latest` is kept). Building
+the newest versions between releases stays `lithify build --latest` (Docker and git), then
+"Install the computer's build" on the page.

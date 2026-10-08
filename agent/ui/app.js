@@ -74,7 +74,9 @@
       s_current: 'current', s_outdated: 'update available', s_unknown: 'could not check', s_local: 'current (local copy)',
       s_ready: 'ready to install', s_fw_pending: 'the speaker installs it',
       upd_source: 'New versions are built by Lithify on your computer ({0}); the speaker gets them only from there, never straight from the internet.',
+      upd_source_release: 'New versions come as Lithify releases: your computer ({0}) downloads and checks them, and the speaker gets them only from there, never straight from the internet.',
       upd_local_copy: 'Lithify on the computer is a local copy, not a clone from GitHub, so it cannot check for newer versions of itself.',
+      upd_release_failed: 'Could not reach Lithify’s releases: {0}',
       upd_no_companion: 'Updates need Lithify running on your computer: `lithify serve --install-service`, then `lithify update` once.',
       upd_available: 'updates available', upd_current: 'up to date', upd_checking: 'checking…',
       upd_checked: 'Checked {0}.', upd_not_checked: 'Not checked yet.', just_now: 'just now',
@@ -83,6 +85,7 @@
       checking: 'checking for updates (up to a minute)…', upd_check_failed: 'Could not check for updates: {0}',
       bad_reply: 'the computer sent an unreadable reply',
       confirm_update: 'Update everything now? The computer builds the newest versions (a few minutes, up to 20 the first time), then the speaker installs them; Spotify Connect pauses for about a minute.',
+      confirm_update_release: 'Update everything now? The computer downloads the newest Lithify release (about a minute), then the speaker installs it; Spotify Connect pauses for about a minute.',
       confirm_build: 'Build again on your computer now (without installing)?',
       build_starting: 'starting the build…', build_running: 'building since {0}…', build_ok: 'Build finished.',
       build_failed: 'The build failed.',
@@ -90,6 +93,7 @@
       confirm_rollback: 'Go back to the previous version ({0})?',
       job_starting: 'starting…', job_running_install: 'installing – about a minute…', job_running_rollback: 'rolling back…',
       job_running_update: 'updating: building on the computer, then installing…',
+      job_running_update_release: 'updating: downloading on the computer, then installing…',
       job_ok_install: 'Installed: librespot and the agent run the new version.',
       job_failed_install: 'Install failed – the previous version keeps running.',
       job_ok_rollback: 'Rolled back to the previous version.', job_failed_rollback: 'Rollback failed.',
@@ -218,7 +222,9 @@
       s_current: 'aktualne', s_outdated: 'jest aktualizacja', s_unknown: 'nie sprawdzono', s_local: 'aktualne (kopia lokalna)',
       s_ready: 'gotowa do instalacji', s_fw_pending: 'głośnik zainstaluje sam',
       upd_source: 'Nowe wersje buduje Lithify na Twoim komputerze ({0}); głośnik pobiera je tylko stamtąd, nigdy bezpośrednio z internetu.',
+      upd_source_release: 'Nowe wersje przychodzą jako wydania Lithify: Twój komputer ({0}) je pobiera i sprawdza, a głośnik dostaje je tylko od niego, nigdy bezpośrednio z internetu.',
       upd_local_copy: 'Lithify na komputerze to kopia lokalna, a nie klon z GitHuba, więc nie może sprawdzić, czy są jego nowsze wersje.',
+      upd_release_failed: 'Nie udało się połączyć z wydaniami Lithify: {0}',
       upd_no_companion: 'Aktualizacje wymagają Lithify uruchomionego na komputerze: `lithify serve --install-service`, a potem raz `lithify update`.',
       upd_available: 'są aktualizacje', upd_current: 'aktualne', upd_checking: 'sprawdzanie…',
       upd_checked: 'Sprawdzono {0}.', upd_not_checked: 'Jeszcze nie sprawdzono.', just_now: 'przed chwilą',
@@ -227,6 +233,7 @@
       checking: 'sprawdzanie aktualizacji (do minuty)…', upd_check_failed: 'Nie udało się sprawdzić aktualizacji: {0}',
       bad_reply: 'komputer odesłał nieczytelną odpowiedź',
       confirm_update: 'Zaktualizować teraz wszystko? Komputer zbuduje najnowsze wersje (kilka minut, za pierwszym razem do 20), potem głośnik je zainstaluje; Spotify Connect przerwie na około minutę.',
+      confirm_update_release: 'Zaktualizować teraz wszystko? Komputer pobierze najnowsze wydanie Lithify (około minuty), potem głośnik je zainstaluje; Spotify Connect przerwie na około minutę.',
       confirm_build: 'Zbudować teraz ponownie na komputerze (bez instalacji)?',
       build_starting: 'uruchamianie kompilacji…', build_running: 'kompilacja trwa od {0}…', build_ok: 'Kompilacja zakończona.',
       build_failed: 'Kompilacja nie powiodła się.',
@@ -234,6 +241,7 @@
       confirm_rollback: 'Wrócić do poprzedniej wersji ({0})?',
       job_starting: 'uruchamianie…', job_running_install: 'instalacja – około minuty…', job_running_rollback: 'przywracanie…',
       job_running_update: 'aktualizacja: budowanie na komputerze, potem instalacja…',
+      job_running_update_release: 'aktualizacja: pobieranie na komputer, potem instalacja…',
       job_ok_install: 'Zainstalowano: librespot i agent działają w nowej wersji.',
       job_failed_install: 'Instalacja nie powiodła się – działa poprzednia wersja.',
       job_ok_rollback: 'Przywrócono poprzednią wersję.', job_failed_rollback: 'Przywracanie nie powiodło się.',
@@ -729,10 +737,27 @@
   const rowOf = (name) => (check && check.check && check.check.ok ? (check.check.data.rows || []) : [])
     .find((r) => r.component === name);
 
+  // With releases (versions.toml on the computer names them), "update everything" downloads the
+  // newest one: the page compares with it, never with the upstream projects (nothing is built).
+  const fromReleases = () => Boolean(check && check.check && check.check.ok && check.check.data.source === 'release');
+  const releaseOf = () => (fromReleases() && check.check.data.release) || null;
+  // A release built later than what the speaker runs (one built on the computer after it stays) -
+  // unless the computer has it already and the speaker runs its very files (nothing to get).
+  const releaseNewer = () => {
+    const rel = releaseOf();
+    if (!rel || !st || (rel.built || '') <= (st.versions.built || '')) return false;
+    const staged = check.latest && check.latest.ok && check.latest.data && check.latest.data.versions;
+    return !(staged && staged.built === rel.built && !check.bundle_new);
+  };
+
+  // true or false; null when it is not known (no check yet, a check that failed, or the releases
+  // out of reach).
   function updatesAvailable() {
     if (!check) return null;
-    const rows = check.check && check.check.ok ? check.check.data.rows || [] : [];
-    return Boolean(check.bundle_new) || rows.some((r) => r.status === 'outdated');
+    const ok = Boolean(check.check && check.check.ok);
+    const rows = ok ? check.check.data.rows || [] : [];
+    if (check.bundle_new || rows.some((r) => r.status === 'outdated') || releaseNewer()) return true;
+    return !ok || (fromReleases() && !releaseOf()) ? null : false;
   }
 
   function renderUpdates() {
@@ -748,10 +773,21 @@
       el('td', { text: newest == null ? '–' : newest }),
       el('td', { class: cls[status] || 'muted', text: status ? t(`s_${status}`) : '–' }));
     let ready = false;
+    const rel = releaseOf(), relNewer = releaseNewer();
+    let relShown = false;
     const row = (key, installed, field, upstream, label = (x) => x) => {
       if (built && built[field] && built[field] !== v[field]) {
         ready = true;
         return line(key, installed, label(built[field], built), 'ready');
+      }
+      if (fromReleases()) {
+        if (!rel) return line(key, installed, null, 'unknown');
+        // (a release older than what runs here, built on the computer later, is not the newest)
+        const newest = relNewer ? rel : v;
+        if (!newest[field]) return line(key, installed, null, null);
+        const newer = relNewer && rel[field] !== v[field];
+        relShown = relShown || newer;
+        return line(key, installed, label(newest[field], newest), newer ? 'outdated' : 'current');
       }
       return line(key, installed, upstream ? upstream.newest : null, upstream && upstream.status);
     };
@@ -785,6 +821,8 @@
     // again): say so instead of leaving the table at odds with "updates available".
     if (check && check.bundle_new && !ready && built) {
       rows.push(line('build', when(v.built), when(built.built), 'ready'));
+    } else if (relNewer && !ready && !relShown) { // (a newer release with the same versions)
+      rows.push(line('build', when(v.built), when(rel.built), 'outdated'));
     }
     // The firmware is Lithe's: the speaker's own Google Cast updater checks for it and installs it.
     rows.push(line('firmware', sp.cast ? `Cast ${sp.cast}` : '', t(fwUpdate ? 'fw_app' : 'fw_none'), fwUpdate ? 'fw_pending' : 'current'));
@@ -805,6 +843,9 @@
     }
     // The main action stands out only when there is something to install.
     document.querySelector('[data-act="update-all"]').classList.toggle('primary', avail === true);
+    // Building again needs Docker and git on the computer: not offered where they are missing.
+    setProp(document.querySelector('[data-act="build"]'), 'hidden',
+      Boolean(check && check.check && check.check.ok && check.check.data.can_build === false));
     // Rolling back makes sense only to a version that differs from the one running.
     const prev = st.prev_versions;
     const rb = $('btn-rollback');
@@ -821,10 +862,11 @@
     // Where updates come from, in words: the computer (by its address; the port is technical).
     let computer = st.ui.companion_url;
     try { computer = new URL(st.ui.companion_url).hostname; } catch (_) { /* shown as it is */ }
-    setText($('upd-source'), st.ui.companion ? [t('upd_source', computer),
+    setText($('upd-source'), st.ui.companion ? [t(fromReleases() ? 'upd_source_release' : 'upd_source', computer),
       me && me.latest == null ? t('upd_local_copy') : ''].filter(Boolean).join(' ') : '');
     if (checking) pill('upd-pill', t('upd_checking'), '');
     else if (avail != null) pill('upd-pill', t(avail ? 'upd_available' : 'upd_current'), avail ? 'warn' : 'ok');
+    else if (check) pill('upd-pill', t('s_unknown'), '');
   }
 
   // librespot as built: a release ("v0.8.0"), or the branch it follows and the commit ("dev e023adb").
@@ -840,7 +882,8 @@
     if (!job || !job.kind) return;
     if (job.running) {
       jobSince = Date.now();
-      showOnce('out-upd', `job ${job.kind} ${job.started}`, busy(t(`job_running_${job.kind}`)));
+      const doing = job.kind === 'update' && fromReleases() ? 'job_running_update_release' : `job_running_${job.kind}`;
+      showOnce('out-upd', `job ${job.kind} ${job.started}`, busy(t(doing)));
       tail('out-upd', job.output);
       return;
     }
@@ -880,6 +923,10 @@
   function showCheck() {
     if (!check) return;
     const avail = updatesAvailable();
+    if (fromReleases() && !releaseOf() && !avail) {
+      show('out-upd', msg(t('upd_release_failed', check.check.data.release_error || '?'), 'bad'));
+      return;
+    }
     show('out-upd',
       check.check.ok ? msg(t(avail ? 'upd_result_available' : 'upd_result_current'), avail ? 'warn' : 'ok')
         : msg(t('upd_check_failed', check.check.error), 'bad'),
@@ -1443,7 +1490,7 @@
     },
     check: () => runCheck(true, false),
     'update-all': async () => {
-      if (confirm(t('confirm_update'))) await startJob('/api/update/all');
+      if (confirm(t(fromReleases() ? 'confirm_update_release' : 'confirm_update'))) await startJob('/api/update/all');
     },
     build: async () => {
       if (!confirm(t('confirm_build'))) return;

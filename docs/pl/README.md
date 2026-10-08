@@ -97,9 +97,10 @@ Spotify, Wi-Fi (pasmo, sygnał), wyjście audio i zainstalowane wersje. Przycisk
 - **Testuj połączenia** – czas połączenia z serwerami Spotify i CDN; pokazuje, które zawodzą;
 - **Ustawienia** – nazwa w Spotify, jakość dźwięku, regulacja głośności, pomijane serwery CDN,
   PIN strony i opcje zaawansowane; po zapisaniu librespot lub agent uruchamia się ponownie sam;
-- **Zaktualizuj wszystko** – jeden przycisk: komputer buduje najnowsze stabilne librespot, Rust,
-  alsa-lib i biblioteki, a głośnik je instaluje (jeśli nic się nie zmieniło, nic nie instaluje);
-  **Przywróć** wraca do poprzedniej wersji.
+- **Zaktualizuj wszystko** – jeden przycisk: komputer pobiera najnowsze wydanie Lithify (bez
+  Dockera), a głośnik je instaluje (jeśli nic się nie zmieniło, nic nie instaluje); to samo robi
+  ponowne uruchomienie instalatora. **Przywróć** wraca do poprzedniej wersji. Kto woli sam
+  budować najnowsze wersje (Docker i git): `lithify build --latest && lithify update`.
 
 Aktualizacje przychodzą wyłącznie z Twojego komputera (`lithify serve`). Ustawiony PIN chroni
 ustawienia i akcje; zapomniany usuniesz poleceniem `lithify settings reset-pin`.

@@ -2493,8 +2493,18 @@ fn start_install(cfg: &Config) -> Response {
     start_job("install", move || install_from_companion(&base, &id).map(|m| (m, true)))
 }
 
-/// Build the newest stable versions on the computer, then install them when they differ from
-/// what the speaker runs.
+/// What "update everything" does first, as the companion's reply says: download the newest
+/// Lithify release (versions.toml names one), or build the newest stable versions.
+fn update_step(reply: &str) -> (&'static str, &'static str) {
+    if json_field(reply, "source").as_deref() == Some("release") {
+        ("1/2 downloading the newest Lithify release on the computer\n", "the download failed")
+    } else {
+        ("1/2 building the newest stable versions on the computer (librespot, Rust, alsa-lib, libraries)\n", "the build failed")
+    }
+}
+
+/// Get the newest versions on the computer (a release downloaded, or a build), then install them
+/// when they differ from what the speaker runs.
 fn start_update_all(cfg: &Config) -> Response {
     let Some(base) = companion_base(cfg) else { return Response::error(503, NO_COMPANION) };
     let id = cfg.speaker_id.clone();
@@ -2502,14 +2512,14 @@ fn start_update_all(cfg: &Config) -> Response {
         return Response::error(500, "this install has no speaker id: run `lithify update` on the computer once");
     }
     start_job("update", move || {
-        job_progress("1/2 building the newest stable versions on the computer (librespot, Rust, alsa-lib, libraries)\n");
-        match http_call("POST", &format!("{base}/api/build?latest=1"), Duration::from_secs(20)) {
-            Ok((200 | 202, _)) => {}
+        let (step, failed) = match http_call("POST", &format!("{base}/api/build?latest=1"), Duration::from_secs(20)) {
+            Ok((200 | 202, body)) => update_step(&body),
             Ok((code, body)) => {
-                return Err(format!("the computer refused the build ({code}): {}", json_field(&body, "error").unwrap_or(body)))
+                return Err(format!("the computer refused the update ({code}): {}", json_field(&body, "error").unwrap_or(body)))
             }
             Err(e) => return Err(format!("companion {base} not reachable: {e}")),
-        }
+        };
+        job_progress(step);
         let started = Instant::now();
         let mut last = String::new();
         loop {
@@ -2538,7 +2548,7 @@ fn start_update_all(cfg: &Config) -> Response {
             match json_field(&body, "ok").as_deref() {
                 Some("true") => break,
                 Some("false") => {
-                    return Err(format!("\nthe build failed: {}\n", json_field(&body, "error").unwrap_or_default()));
+                    return Err(format!("\n{failed}: {}\n", json_field(&body, "error").unwrap_or_default()));
                 }
                 _ => continue,
             }
@@ -2603,6 +2613,19 @@ mod tests {
         assert_eq!(q("a\"b\\c\n<"), "\"a\\\"b\\\\c\\n\\u003c\"");
         assert_eq!(q("Łazienka"), "\"Łazienka\"");
         assert_eq!(Obj::new().str("a", "x").num("b", 2).bool("c", true).opt("d", None).end(), r#"{"a":"x","b":2,"c":true,"d":null}"#);
+    }
+
+    #[test]
+    fn update_everything_says_whether_it_downloads_or_builds() {
+        let (step, failed) = update_step(r#"{"started":true,"latest":true,"source":"release"}"#);
+        assert!(step.contains("downloading the newest Lithify release"), "{step}");
+        assert_eq!(failed, "the download failed");
+        // a companion without releases, or one from before them (no "source")
+        for reply in [r#"{"started":true,"latest":true,"source":"build"}"#, r#"{"started":true,"latest":true}"#] {
+            let (step, failed) = update_step(reply);
+            assert!(step.starts_with("1/2 building the newest stable versions"), "{step}");
+            assert_eq!(failed, "the build failed");
+        }
     }
 
     #[test]

@@ -269,18 +269,16 @@ def _existing(p: Path) -> Path:
 
 def _published() -> bool:
     """Does versions.toml name a published bundle? (`lithify install` then downloads it, see cli.get_bundle.)"""
-    try:
-        return bool(bundle.load_pins().get("release", {}).get("url"))
-    except (OSError, ValueError, KeyError):
-        return False
+    return bool(bundle.release_url())
 
 
 def software() -> str:
-    """How an installation gets the speaker's software: "ready" (built or downloaded before),
-    "download" (a published bundle) or "build" (Docker builds it on this computer)."""
-    if (bundle.CACHE / "bundle" / "VERSIONS").exists():
-        return "ready"
-    return "download" if _published() else "build"
+    """How an installation gets the speaker's software: "download" (a published release: the newest
+    one, when it is newer than the bundle here), "ready" (built before) or "build" (Docker builds
+    it on this computer)."""
+    if _published():
+        return "download"
+    return "ready" if (bundle.CACHE / "bundle" / "VERSIONS").exists() else "build"
 
 
 def check_computer() -> dict:

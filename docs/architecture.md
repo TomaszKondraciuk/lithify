@@ -135,8 +135,8 @@ What keeps it light and self-healing:
 `versions.toml` pins librespot, Lithify's own changes to it (patch files in `build/patches/`),
 alsa-lib, the Rust release and the cross-compiler image. librespot is followed on its development
 branch: its releases come about once a year, its fixes every few weeks. The pin is one commit of
-that branch, the one this Lithify was built and tested with; "update everything" (`lithify build
---latest`) moves on to the branch's newest commit, and a patch librespot has taken in by then is
-skipped by itself. (A release tag in `ref`, without `commit`, works too.) The build log, the
-resolved `Cargo.lock`, the librespot commit and the key crate versions recorded in `VERSIONS`
-describe exactly what was built.
+that branch, the one this Lithify was built and tested with; `lithify build --latest` ("update
+everything" without releases) moves on to the branch's newest commit, and a patch librespot has
+taken in by then is skipped by itself. (A release tag in `ref`, without `commit`, works too.) The
+build log, the resolved `Cargo.lock`, the librespot commit and the key crate versions recorded in
+`VERSIONS` describe exactly what was built.

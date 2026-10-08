@@ -317,6 +317,40 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"settings.default", body)
 
+    def test_update_everything_downloads_the_newest_release_when_there_are_releases(self):
+        saved = companion.build_status()
+        self.addCleanup(lambda: [setattr(companion._Build, k, v) for k, v in saved.items()])
+        for url, path, source in (("https://example.org/r", "/api/build?latest=1", "release"),
+                                  ("https://example.org/r", "/api/build", "build"),  # (build again: a build)
+                                  ("", "/api/build?latest=1", "build")):
+            started = threading.Event()
+            with self.subTest(url=url, path=path), mock.patch.object(bundle, "release_url", lambda u=url: u), \
+                    mock.patch.object(companion, "_run_build", side_effect=lambda *a, s=started: s.set()) as run:
+                companion._Build.running = False
+                status, _, body = self.request(path, "POST")
+                self.assertTrue(started.wait(5))
+            self.assertEqual((status, json.loads(body)["source"]), (202, source))
+            self.assertEqual(run.call_args[0][1], source == "release")
+
+    def test_a_download_of_the_release_runs_lithify_fetch(self):
+        saved = companion.build_status()
+        self.addCleanup(lambda: [setattr(companion._Build, k, v) for k, v in saved.items()])
+        ran = []
+
+        class Proc:
+            stdout = iter(["==> librespot ok\n", "==> VERSIONS ok\n"])
+
+            def __init__(self, cmd, **_kw):
+                ran.append(cmd)
+
+            def wait(self):
+                return 0
+
+        with mock.patch.object(companion.subprocess, "Popen", Proc), mock.patch.object(updates, "head", lambda _r: ""):
+            companion._run_build(True, release=True)
+        self.assertEqual(ran[0][2:], ["fetch", "--if-newer", "--exit-with-parent"])
+        self.assertEqual((companion._Build.ok, companion._Build.phase), (True, "VERSIONS ok"))
+
     def test_a_speaker_that_goes_away_is_one_log_line(self):
         out, err = io.StringIO(), io.StringIO()
         try:
@@ -344,10 +378,36 @@ class CheckTest(unittest.TestCase):
             return [{"component": "librespot", "status": "current"}]
 
         for target, name, value in ((bundle, "CACHE", Path(tmp.name)), (updates, "report", report),
-                                    (updates, "format_report", lambda rows: "text")):
+                                    (updates, "format_report", lambda rows: "text"),
+                                    (bundle, "release_url", lambda: "")):
             patch = mock.patch.object(target, name, value)
             patch.start()
             self.addCleanup(patch.stop)
+
+    def test_with_releases_the_check_tells_the_newest_one(self):
+        newest = {"lithify": "0.2.0", "librespot": "v0.9.0", "built": "2026-11-01T10:00:00Z"}
+        with mock.patch.object(bundle, "release_url", lambda: "https://example.org/r"), \
+                mock.patch.object(bundle, "release_versions", return_value=newest) as asked:
+            got = companion.check_updates(False)
+            self.assertTrue(companion._usable(False))  # (kept like a full answer)
+        asked.assert_called_once_with("https://example.org/r")
+        self.assertEqual(self.calls, 0)  # (no upstream source is asked: nothing is built here)
+        self.assertEqual((got["source"], got["release"], got["rows"]), ("release", newest, []))
+        self.assertIn("can_build", got)
+
+    def test_releases_out_of_reach_are_said_and_asked_again_soon(self):
+        failed = bundle.BuildError("download failed: timed out")
+        with mock.patch.object(bundle, "release_url", lambda: "https://example.org/r"), \
+                mock.patch.object(bundle, "release_versions", side_effect=failed):
+            got = companion.check_updates(False)
+            self.assertIsNone(got["release"])
+            self.assertIn("timed out", got["release_error"])
+            companion._Check.at -= 121
+            self.assertFalse(companion._usable(False))  # (an incomplete answer: kept for 2 minutes)
+
+    def test_without_releases_the_upstream_sources_are_asked(self):
+        got = companion.check_updates(False)
+        self.assertEqual((got["source"], self.calls), ("build", 1))
 
     def test_callers_during_a_check_wait_for_its_answer(self):
         answers = []

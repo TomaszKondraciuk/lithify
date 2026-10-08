@@ -271,11 +271,11 @@ class ChecksTest(unittest.TestCase):
     def test_how_the_speakers_software_comes(self):
         # (the page's words and times: a build takes 10-30 minutes, the rest a few)
         self.assertEqual(wizard.software(), "build")
-        with mock.patch.object(wizard, "_published", lambda: True):
+        (self.cache / "bundle").mkdir()
+        (self.cache / "bundle" / "VERSIONS").write_text("librespot=v0.7.1\n", encoding="utf-8")
+        self.assertEqual(wizard.software(), "ready")
+        with mock.patch.object(wizard, "_published", lambda: True):  # (a newer release replaces it)
             self.assertEqual(wizard.software(), "download")
-            (self.cache / "bundle").mkdir()
-            (self.cache / "bundle" / "VERSIONS").write_text("librespot=v0.7.1\n", encoding="utf-8")
-            self.assertEqual(wizard.software(), "ready")
 
     def test_little_disk_space_is_a_warning(self):
         usage = mock.Mock(free=2 * 1024 ** 3)

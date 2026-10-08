@@ -136,9 +136,9 @@ client, Wi-Fi band and signal, the audio output and the installed versions, and 
 
 - **change every setting** – name in Spotify, audio quality, volume behaviour, fail-fast CDN
   servers, the page's PIN and the advanced options – and restart only what uses them;
-- **update everything**: one button builds the newest stable librespot, Rust, alsa-lib and
-  libraries on your computer and installs them (nothing is reinstalled when nothing changed),
-  with a list of what is new and a rollback button;
+- **update everything**: one button installs the newest Lithify release, which your computer
+  downloads (no Docker needed; nothing is reinstalled when nothing changed), with a list of what
+  is new and a rollback button;
 - test librespot (discovery, recent underruns and errors) and the connections to Spotify's
   access points and CDNs; restart librespot, the official client or the agent; show the logs.
 
@@ -192,12 +192,18 @@ With several speakers, add `--speaker <id>`.
 
 ## Updating
 
-**Update everything** on the web page (or `lithify build --latest && lithify update`) moves
-librespot, alsa-lib and Rust to their newest stable releases, refreshes every library to its
-newest compatible version, builds, and installs – only when something changed. A newer choice
-is remembered in `~/.config/lithify/versions.toml`; if it does not build, the previous one stays.
-[`versions.toml`](versions.toml) holds the tested baseline, and the upstream fixes back-ported
-onto it are used only for that release.
+**Update everything** on the web page installs the newest Lithify release: your computer
+downloads it, checks every file, and the speaker installs it – only when it is newer than what
+the speaker runs. Running the installer again, or `lithify update`, does the same.
+
+To build the newest versions yourself (Docker and git): `lithify build --latest && lithify update`
+moves librespot, alsa-lib and Rust to their newest stable releases, refreshes every library to its
+newest compatible version, builds, and installs – only when something changed. A release never
+replaces a bundle built on the computer after it. A newer choice is remembered in
+`~/.config/lithify/versions.toml`; if it does not build, the previous one stays. Without releases
+(`[release] url` empty in `versions.toml`, as in a private copy), **Update everything** does this
+build. [`versions.toml`](versions.toml) holds the tested baseline, and the upstream fixes
+back-ported onto it are used only for that release.
 
 ## How it works
 

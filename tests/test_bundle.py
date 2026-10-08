@@ -412,6 +412,34 @@ class FetchTest(unittest.TestCase):
             bundle._download("https://example.com/SHA256SUMS")
 
 
+class ReleaseVersionsTest(unittest.TestCase):
+    def test_the_newest_release_says_its_versions_and_when_it_was_built(self):
+        text = b"lithify=0.2.0\nlibrespot=v0.9.0\nbuilt=2026-11-01T10:00:00Z\n"
+        with mock.patch.object(bundle, "_download", return_value=text) as got:
+            self.assertEqual(bundle.release_versions("https://example.org/download/"),
+                             {"lithify": "0.2.0", "librespot": "v0.9.0", "built": "2026-11-01T10:00:00Z"})
+        got.assert_called_once_with("https://example.org/download/VERSIONS")
+        with mock.patch.object(bundle, "_download", return_value=b"<html>not found</html>"), \
+                self.assertRaisesRegex(bundle.BuildError, "when it was built"):
+            bundle.release_versions("https://example.org/download")
+
+    def test_a_release_is_newer_only_when_it_was_built_later(self):
+        here = {"built": "2026-10-08T08:13:19Z"}
+        self.assertTrue(bundle.release_is_newer({"built": "2026-11-01T10:00:00Z"}, here))
+        self.assertFalse(bundle.release_is_newer({"built": "2026-10-08T08:13:19Z"}, here))  # (the same one)
+        # (one built here after the release, with `lithify build --latest`, stays)
+        self.assertFalse(bundle.release_is_newer({"built": "2026-10-01T00:00:00Z"}, here))
+        self.assertTrue(bundle.release_is_newer({"built": "2026-10-01T00:00:00Z"}, {}))  # (none here)
+
+    def test_a_cut_off_reply_is_a_failed_download(self):
+        reply = mock.MagicMock()
+        reply.__enter__.return_value.geturl.return_value = "https://example.org/VERSIONS"
+        reply.__enter__.return_value.read.side_effect = bundle.http.client.IncompleteRead(b"lith")
+        with mock.patch.object(bundle.urllib.request, "urlopen", return_value=reply), \
+                self.assertRaisesRegex(bundle.BuildError, "download https://example.org/VERSIONS failed"):
+            bundle._download("https://example.org/VERSIONS")
+
+
 class SwapTest(unittest.TestCase):
     @staticmethod
     def bundle_dir(d: Path, tag: str) -> Path:
