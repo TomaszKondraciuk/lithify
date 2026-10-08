@@ -51,6 +51,22 @@ class ProbeTest(unittest.TestCase):
         with mock.patch.object(discovery, "_probe", side_effect=probe):
             self.assertEqual([f["host"] for f in discovery.discover("192.0.2.0/30")], ["192.0.2.2"])
 
+    def test_a_scan_that_finds_nothing_looks_once_more_and_slower(self):
+        timeouts = []
+
+        def probe(host: str, timeout: float):
+            timeouts.append(timeout)
+            late = host == "192.0.2.2" and timeout > 1.0  # (it answers the second scan only)
+            return {"host": host, "name": "Kuchnia", "model": "V2", "spotify_esdk": ""} if late else None
+
+        with mock.patch.object(discovery, "_probe", side_effect=probe):
+            self.assertEqual([f["host"] for f in discovery.discover("192.0.2.0/30", timeout=1.0)], ["192.0.2.2"])
+        self.assertEqual(sorted(set(timeouts)), [1.0, 2.0])
+        timeouts.clear()
+        with mock.patch.object(discovery, "_probe", side_effect=lambda h, t: timeouts.append(t) or {"host": h}):
+            discovery.discover("192.0.2.0/30", timeout=1.0)
+        self.assertEqual(set(timeouts), {1.0})  # (found at once: no second scan)
+
 
 class WithoutOfficialSpotifyTest(unittest.TestCase):
     """A Cast device whose official Spotify does not answer (Lithify hides it, or it crashed)."""

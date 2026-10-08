@@ -98,9 +98,15 @@ def discover(network: str | None = None, timeout: float = 1.0) -> list[dict]:
             return []
         network = str(ipaddress.ip_network(f"{ip}/24", strict=False))
     hosts = [str(h) for h in ipaddress.ip_network(network, strict=False).hosts()]
-    with ThreadPoolExecutor(max_workers=64) as ex:
-        found = [r for r in ex.map(lambda h: _probe_one(h, timeout), hosts) if r]
+    found = _scan(hosts, timeout)
+    if not found:  # (once more and slower: a first scan has missed a speaker that answered the next one)
+        found = _scan(hosts, timeout * 2)
     return sorted(found, key=lambda r: ipaddress.ip_address(r["host"]))
+
+
+def _scan(hosts: list[str], timeout: float) -> list[dict]:
+    with ThreadPoolExecutor(max_workers=64) as ex:
+        return [r for r in ex.map(lambda h: _probe_one(h, timeout), hosts) if r]
 
 
 def _probe_one(host: str, timeout: float) -> dict | None:
