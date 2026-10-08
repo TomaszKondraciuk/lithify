@@ -697,10 +697,12 @@ def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
             print(f"    backport {sha} already in {lp['ref']}, skipped")
         else:
             raise BuildError(f"backport {sha} does not apply to {lp['ref']}: drop it from versions.toml or refresh it")
+    patched = []  # the local patches this build has (librespot may have taken some in)
     for name in lp.get("local_patches", []):
         p = root / "build" / "patches" / f"{name}.patch"
         if sh([*git, "apply", "--check", p], check=False).returncode == 0:
             sh([*git, "apply", p], log)
+            patched.append(name)
             print(f"    local patch {name} applied")
         elif sh([*git, "apply", "--reverse", "--check", p], check=False).returncode == 0:
             print(f"    local patch {name} already in librespot, skipped")  # upstream took it in
@@ -755,14 +757,16 @@ def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
     sh([*docker_run(img, [(AGENT_TARGET_VOLUME, "/target", True), (bundle, "/out")]), "sh", "-c",
         f"cp /target/{TARGET}/release/lithify-agent /out/ && tar -C /opt/alsa-conf -cf /out/alsa.tar alsa"], log)
     lock = (src / "Cargo.lock").read_text(encoding="utf-8")
-    describe = sh(["git", "-C", src, "describe", "--tags", "--always", "--dirty"]).stdout.strip()
+    # (named by its patches rather than git's "-dirty", which they cause)
+    describe = sh(["git", "-C", src, "describe", "--tags", "--always"]).stdout.strip()
+    describe += "".join(f"+{name}" for name in patched)
     versions = {
         "lithify": __version__,
         "librespot": describe,
         "librespot_ref": lp["ref"],
         "librespot_commit": sh(["git", "-C", src, "rev-parse", "HEAD"]).stdout.strip(),
         "backports": " ".join(backports),
-        "local_patches": " ".join(lp.get("local_patches", [])),
+        "local_patches": " ".join(patched),
         "deps": "newest compatible as of " + datetime.now(UTC).strftime("%Y-%m-%d")
                 if lp.get("update_deps") else "release lockfile",
         "key_crates": " ".join(f"{c}-{'+'.join(lock_versions(lock, c))}" for c in KEY_CRATES),
