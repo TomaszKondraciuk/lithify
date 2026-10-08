@@ -151,7 +151,7 @@ Every command: [commands.md](commands.md).
 
 *Update everything* on the speaker's page installs the newest release. Running the installer
 again, or `lithify update`, does the same. The computer downloads the release over HTTPS and
-checks every file against the release's checksums (the files are not signed). The speaker installs
+checks Lithify's signature on the release's checksums, then every file against them. The speaker installs
 it only when it is newer than what it runs, and keeps its settings. *Roll back* on the page, or
 `lithify rollback`, returns to the previous version.
 

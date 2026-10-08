@@ -440,6 +440,56 @@ class ReleaseVersionsTest(unittest.TestCase):
             bundle._download("https://example.org/VERSIONS")
 
 
+class SignatureTest(unittest.TestCase):
+    SEED = bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+
+    def test_ed25519_matches_rfc_8032(self):
+        from lithify import ed25519
+        pub = ed25519.public_key(self.SEED)
+        self.assertEqual(pub.hex(), "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
+        sig = ed25519.sign(self.SEED, b"")
+        self.assertEqual(sig.hex(), "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33b"
+                                    "acc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")
+        self.assertTrue(ed25519.verify(pub, b"", sig))
+        self.assertFalse(ed25519.verify(pub, b"x", sig))
+        self.assertFalse(ed25519.verify(pub, b"", sig[:-1] + bytes([sig[-1] ^ 1])))
+        self.assertFalse(ed25519.verify(pub, b"", b"short"))
+
+    def test_a_release_without_lithifys_signature_is_refused(self):
+        from lithify import ed25519
+        key = ed25519.public_key(self.SEED)
+        sums = b"abc  librespot\n"
+        good = ed25519.sign(self.SEED, sums).hex().encode()
+        bundle.check_signature(sums, good, key)
+        for bad in (ed25519.sign(self.SEED, b"other").hex().encode(), b"", b"not hex"):
+            with self.subTest(sig=bad), self.assertRaisesRegex(bundle.BuildError, "signature does not match"):
+                bundle.check_signature(sums, bad, key)
+
+    def test_only_the_configured_release_address_needs_the_key(self):
+        pins = {"release": {"url": "https://example.org/r/", "public_key": "ab" * 32}}
+        with mock.patch.object(bundle, "load_pins", return_value=pins):
+            self.assertEqual(bundle.release_key("https://example.org/r"), bytes.fromhex("ab" * 32))
+            self.assertIsNone(bundle.release_key("https://test.example/other"))  # (`fetch --url`, on purpose)
+        with mock.patch.object(bundle, "load_pins", return_value={"release": {"url": "https://example.org/r"}}):
+            self.assertIsNone(bundle.release_key("https://example.org/r"))  # (no key: as before)
+
+    def test_fetch_checks_the_signature_before_any_file(self):
+        downloads = []
+
+        def download(url):
+            downloads.append(url.rsplit("/", 1)[1])
+            return b"abc  librespot\n" if url.endswith("SHA256SUMS") else b"0" * 128
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(bundle, "_download", side_effect=download), \
+                self.assertRaises(bundle.BuildError):
+            bundle._fetch("https://example.org/r", Path(d), bytes(32))
+        self.assertEqual(downloads, ["SHA256SUMS", "SHA256SUMS.sig"])  # (nothing else was downloaded)
+
+    def test_the_repository_names_a_valid_release_key(self):
+        key = bundle.load_pins()["release"]["public_key"]
+        self.assertEqual(len(bytes.fromhex(key)), 32)
+
+
 class SwapTest(unittest.TestCase):
     @staticmethod
     def bundle_dir(d: Path, tag: str) -> Path:

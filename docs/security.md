@@ -88,8 +88,12 @@ port 8095. (Its configuration and service names call it the companion.)
 
 ## The bundle
 
-A release is built by the same steps on GitHub, from this repository. `lithify fetch` downloads it
-over HTTPS and checks each file against its `SHA256SUMS`; the files are not signed.
+A release is built by the same steps on GitHub, from this repository. The release workflow signs
+its `SHA256SUMS` with Lithify's Ed25519 key (`SHA256SUMS.sig`). `lithify fetch` downloads the
+release over HTTPS, checks the signature against the public key in `versions.toml`, and only then
+checks each file against the sums. A release whose signature is missing or wrong is refused, and
+nothing on the computer is replaced. The check is the same on every system: Lithify carries its
+own small Ed25519 implementation (`lithify/ed25519.py`, tested against RFC 8032's vectors).
 
 `lithify build` builds it from source instead:
 

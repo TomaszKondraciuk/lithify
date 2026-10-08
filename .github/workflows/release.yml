@@ -35,6 +35,23 @@ jobs:
         env:
           LITHIFY_CACHE: ${{ runner.temp }}/lithify-cache
         run: python bin/lithify build
+      - name: Sign SHA256SUMS (the installers check the signature before they trust the sums)
+        env:
+          LITHIFY_SIGNING_KEY: ${{ secrets.LITHIFY_SIGNING_KEY }}
+          BUNDLE: ${{ runner.temp }}/lithify-cache/bundle
+        run: |
+          python - <<'PY'
+          import os, tomllib
+          from pathlib import Path
+          from lithify import ed25519
+          seed = bytes.fromhex(os.environ["LITHIFY_SIGNING_KEY"].strip())  # (KeyError: the secret is missing)
+          public = tomllib.load(open("versions.toml", "rb"))["release"]["public_key"]
+          assert ed25519.public_key(seed).hex() == public, "LITHIFY_SIGNING_KEY does not match [release] public_key"
+          sums = Path(os.environ["BUNDLE"], "SHA256SUMS")
+          sig = ed25519.sign(seed, sums.read_bytes())
+          assert ed25519.verify(bytes.fromhex(public), sums.read_bytes(), sig)
+          sums.with_name("SHA256SUMS.sig").write_text(sig.hex() + "\n")
+          PY
       - name: Launchers for macOS and Linux in ZIPs (a browser's download is not executable; an unpacked ZIP is)
         run: |
           python - <<'PY'
@@ -64,4 +81,4 @@ jobs:
           } > notes.md
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lithify $TAG" --notes-file notes.md \
             Lithify-Windows.cmd Lithify-macOS.zip Lithify-Linux.zip \
-            "$BUNDLE/SHA256SUMS" "$BUNDLE/librespot" "$BUNDLE/lithify-agent" "$BUNDLE/alsa.tar" "$BUNDLE/VERSIONS"
+            "$BUNDLE/SHA256SUMS" "$BUNDLE/SHA256SUMS.sig" "$BUNDLE/librespot" "$BUNDLE/lithify-agent" "$BUNDLE/alsa.tar" "$BUNDLE/VERSIONS"

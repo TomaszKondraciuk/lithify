@@ -136,7 +136,7 @@ Sprawdzone komputery: Windows 11, macOS 15 i Ubuntu 24.04.
 
 ```mermaid
 flowchart LR
-    release["Wydanie na GitHubie"] -- "pobrane po HTTPS" --> computer["Twój komputer<br>pomocnik Lithify"]
+    release["Wydanie na GitHubie"] -- "pobrane, podpis sprawdzony" --> computer["Twój komputer<br>pomocnik Lithify"]
     computer -- "skopiowane przez Twoją sieć" --> speaker["Głośnik Lithe Audio<br>librespot + agent Lithify"]
     app["Aplikacja Spotify"] -- "Spotify Connect" --> speaker
 ```
@@ -145,9 +145,9 @@ Lithify dodaje dwie pozycje do listy programów, które głośnik uruchamia przy
 librespot. Druga to mały program, agent Lithify, który pilnuje działania Spotify i udostępnia
 stronę WWW. Ich pliki leżą w jednym katalogu w trwałej pamięci głośnika.
 
-Komputer pobiera każde wydanie po HTTPS i sprawdza je z sumami kontrolnymi wydania. Pliki nie są
-podpisane. Pomocnik kopiuje je potem na głośnik przez Twoją sieć. Sam głośnik nigdy nie pobiera
-oprogramowania z internetu.
+Komputer pobiera każde wydanie po HTTPS. Zanim czegokolwiek użyje, sprawdza, czy lista sum
+kontrolnych ma podpis Lithify i czy każdy plik się z nią zgadza. Pomocnik kopiuje potem pliki na
+głośnik przez Twoją sieć. Sam głośnik nigdy nie pobiera oprogramowania z internetu.
 
 Więcej (po angielsku): [architecture.md](../architecture.md).
 

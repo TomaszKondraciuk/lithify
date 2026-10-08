@@ -870,19 +870,45 @@ def _download(url: str) -> bytes:
         raise BuildError(f"download {url} failed: {e or type(e).__name__}") from None
 
 
+def release_key(url: str) -> bytes | None:
+    """The public key the releases at `url` are signed with: versions.toml's, for its own release
+    address (another address, given on purpose with `lithify fetch --url`, is not checked)."""
+    release = load_pins().get("release", {})
+    key = release.get("public_key", "")
+    if not key or url.rstrip("/") != release.get("url", "").rstrip("/"):
+        return None
+    return bytes.fromhex(key)
+
+
+def check_signature(sums: bytes, signature: bytes, key: bytes) -> None:
+    """SHA256SUMS.sig: the Ed25519 signature of SHA256SUMS, in hex. Checked before any of the
+    sums is trusted, so a release replaced on the way (or on the server) is refused."""
+    from . import ed25519
+    try:
+        sig = bytes.fromhex(signature.decode("ascii").strip())
+    except (UnicodeDecodeError, ValueError):
+        sig = b""
+    if not ed25519.verify(key, sums, sig):
+        raise BuildError("the release's signature does not match: SHA256SUMS was not signed by Lithify's key")
+
+
 def fetch(url: str, cache: Path = CACHE) -> Path:
     """Download a published bundle (SHA256SUMS and the files it lists), verifying every file;
-    the current bundle is replaced only when all of them arrived intact."""
+    the current bundle is replaced only when all of them arrived intact. With a release key
+    (versions.toml), SHA256SUMS must carry Lithify's signature first."""
     _https(url)
     with _lock(cache / "build.lock", wait=False, busy="a build is running: try again when it has finished"):
-        return _fetch(url.rstrip("/"), cache)
+        return _fetch(url.rstrip("/"), cache, release_key(url))
 
 
-def _fetch(url: str, cache: Path) -> Path:
+def _fetch(url: str, cache: Path, key: bytes | None = None) -> Path:
     tmp = cache / "bundle.new"
     hostos.rmtree(tmp, quiet=False)
     tmp.mkdir(parents=True)
     sums = _download(f"{url}/SHA256SUMS")
+    if key is not None:
+        check_signature(sums, _download(f"{url}/SHA256SUMS.sig"), key)
+        say("signature ok")
     expected = {}
     for line in sums.decode("utf-8", "replace").splitlines():
         if not line.strip():

@@ -140,7 +140,7 @@ Tested computers: Windows 11, macOS 15 and Ubuntu 24.04.
 
 ```mermaid
 flowchart LR
-    release["GitHub release"] -- "downloaded over HTTPS" --> computer["Your computer<br>Lithify helper"]
+    release["GitHub release"] -- "downloaded, signature checked" --> computer["Your computer<br>Lithify helper"]
     computer -- "copied over your network" --> speaker["Lithe Audio speaker<br>librespot + Lithify agent"]
     app["Spotify app"] -- "Spotify Connect" --> speaker
 ```
@@ -149,9 +149,10 @@ Lithify adds two entries to the list of programs the speaker starts at boot. One
 The other is a small program, the Lithify agent, that runs the watchdog and the web page. Their
 files live in one folder on the speaker's persistent storage.
 
-Your computer downloads each release over HTTPS and checks it against the release's checksums.
-The files are not signed. The helper then copies them to the speaker over your network. The
-speaker itself never downloads its software from the internet.
+Your computer downloads each release over HTTPS. It checks that the list of checksums carries
+Lithify's signature, and that every file matches it, before it uses anything. The helper then
+copies the files to the speaker over your network. The speaker itself never downloads its
+software from the internet.
 
 More detail: [docs/architecture.md](docs/architecture.md).
 
