@@ -1,28 +1,67 @@
-# On a version tag: run the tests, build the speaker bundle and publish it as release assets,
-# so `lithify fetch --url https://github.com/<owner>/lithify/releases/latest/download` works
-# without Docker.
 name: release
+# A tag (v1.2.3) publishes a GitHub release with the prebuilt bundle and the three launchers: the
+# installers download the bundle from it ([release] url in versions.toml), so no computer needs
+# Docker or git to install. Before the first one: docs/releasing.md.
 on:
   push:
     tags: ["v*"]
 permissions:
   contents: write
 jobs:
-  bundle:
+  release:
+    name: Bundle and launchers
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: The launchers and installers know where Lithify is
+        # (they download from the repository: its address replaces the placeholder, see docs/releasing.md)
+        run: |
+          if grep -rln "OWNER/lithify" Lithify-Windows.cmd Lithify-macOS.command Lithify-Linux.sh installer README.md docs versions.toml; then
+            echo "::error::the files above still name OWNER/lithify: run .github/scripts/go-public.py first (docs/releasing.md)"
+            exit 1
+          fi
+          python - <<'PY'
+          import tomllib
+          url = tomllib.load(open("versions.toml", "rb"))["release"]["url"]
+          assert url.startswith("https://github.com/"), f"[release] url in versions.toml: {url!r}"
+          PY
       - name: Tests
         run: python -m unittest discover -s tests -t .
       - name: Build the bundle
+        env:
+          LITHIFY_CACHE: ${{ runner.temp }}/lithify-cache
         run: python bin/lithify build
-      - name: Publish
+      - name: Launchers for macOS and Linux in ZIPs (a browser's download is not executable; an unpacked ZIP is)
+        run: |
+          python - <<'PY'
+          import zipfile
+          for name, out in (("Lithify-macOS.command", "Lithify-macOS.zip"), ("Lithify-Linux.sh", "Lithify-Linux.zip")):
+              info = zipfile.ZipInfo(name)
+              info.create_system = 3  # (Unix: its mode below counts)
+              info.external_attr = 0o100755 << 16
+              info.compress_type = zipfile.ZIP_DEFLATED
+              with zipfile.ZipFile(out, "w") as z, open(name, "rb") as f:
+                  z.writestr(info, f.read())
+          PY
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          BUNDLE: ${{ runner.temp }}/lithify-cache/bundle
         run: |
-          cd ~/.cache/lithify/bundle
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Lithify $GITHUB_REF_NAME" \
-            --notes-file VERSIONS librespot lithify-agent alsa.tar VERSIONS SHA256SUMS
+          {
+            echo "Windows: Lithify-Windows.cmd - macOS: Lithify-macOS.zip - Linux: Lithify-Linux.zip (see the README)."
+            echo
+            echo "The bundle for the speaker (the installers download it from here):"
+            echo
+            echo '```'
+            cat "$BUNDLE/VERSIONS"
+            echo '```'
+          } > notes.md
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lithify $TAG" --notes-file notes.md \
+            Lithify-Windows.cmd Lithify-macOS.zip Lithify-Linux.zip \
+            "$BUNDLE/SHA256SUMS" "$BUNDLE/librespot" "$BUNDLE/lithify-agent" "$BUNDLE/alsa.tar" "$BUNDLE/VERSIONS"
