@@ -319,6 +319,17 @@ class ServiceTest(unittest.TestCase):
             self.assertEqual(service.supervise(worker), 3)
             self.assertEqual(count.read_text(), "xxx")  # started three times, the last one ended for good
 
+    def test_with_retry_after_a_failed_worker_is_started_again(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch("sys.stdout"), \
+                mock.patch.object(service.time, "sleep") as slept:
+            count = Path(d) / "runs"
+            worker = [sys.executable, "-c", f"import pathlib, sys; p = pathlib.Path({str(count)!r}); "
+                                            "n = len(p.read_text()) if p.exists() else 0; "
+                                            "p.write_text('x' * (n + 1)); sys.exit(1 if n < 2 else 0)"]
+            self.assertEqual(service.supervise(worker, retry_after=10.0), 0)
+            self.assertEqual(count.read_text(), "xxx")  # two failures, then it ran
+            self.assertEqual([c.args[0] for c in slept.call_args_list], [10.0, 20.0])  # (longer each time)
+
     def test_service_tool_errors_say_what_the_tool_said(self):
         failing = [sys.executable, "-c", "import sys; sys.stderr.write('Unit file is masked.'); sys.exit(1)"]
         with self.assertRaisesRegex(RuntimeError, "cannot enable: Unit file is masked."):

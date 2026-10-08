@@ -81,6 +81,9 @@ for f in VERSIONS SHA256SUMS; do
   mv $f $D/$f || { restore; fail "install $f (the previous version is back)"; }
 done
 cd $D; rmdir $D/new; rm -f $D/.installing
+# The files of installs made before the settings (agent.conf, librespot.args) are not read once
+# the speaker has its settings: left there they only mislead (an old companion address).
+[ -f $D/settings/settings.conf ] && rm -f $D/agent.conf $D/librespot.args
 for f in $D/prev/*; do [ -f "$f" ] && chmod 644 "$f"; done
 chmod 755 $D
 [ -f $D/prev/librespot ] && chmod 755 $D/prev $D/prev/librespot $D/prev/lithify-agent

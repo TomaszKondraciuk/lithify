@@ -485,7 +485,8 @@ def cmd_serve(a, cfg) -> int:
     # The supervisor: it starts the companion again after Lithify updated itself.
     worker = [sys.executable, str(ROOT / "bin" / "lithify"), *(["--config", str(conf)] if conf else []),
               "serve", "--worker"]
-    return service.supervise(worker, Path(a.log) if a.log else None)
+    # (Windows' Task Scheduler does not restart a program that exits with an error: this does.)
+    return service.supervise(worker, Path(a.log) if a.log else None, retry_after=10.0 if hostos.WINDOWS else None)
 
 
 def cmd_ui(a, cfg) -> int:

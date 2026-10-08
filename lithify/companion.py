@@ -667,6 +667,29 @@ def public_url(cfg: config.Config) -> str:
     return f"http://[{ip}]:{port}" if ":" in ip else f"http://{ip}:{port}"
 
 
+NETWORK_WAIT = 5.0  # seconds between tries while the computer has no network yet
+
+
+def _bind_when_online(cfg: config.Config, make: Callable[[str, int], http.server.HTTPServer],
+                      stop: threading.Event | None = None, wait: float = NETWORK_WAIT):
+    """The server, once the computer is on the speakers' network. Started with the computer, the
+    companion often comes before the network (no route to the speaker yet, or its address not
+    assigned): it waits for it, with one log line, instead of exiting."""
+    said = False
+    while True:
+        try:
+            ip, port = listen_address(cfg)
+            return make(ip, port)
+        except OSError as e:
+            if not said:
+                print(f"waiting for the network ({e}): trying again every {wait:g} s", flush=True)
+                said = True
+            if stop is not None and stop.wait(wait):
+                raise
+            if stop is None:
+                time.sleep(wait)
+
+
 def serve_forever(cfg: config.Config) -> int:
     """Serve until stopped; service.RESTART when Lithify updated itself (start again), else 0."""
     global _SERVER
@@ -678,10 +701,13 @@ def serve_forever(cfg: config.Config) -> int:
     # Containers of builds that ended with an earlier companion (killed, or the computer stopped)
     # would run on for up to an hour. (Docker may be slow to answer: not in the server's way.)
     threading.Thread(target=bundle.remove_stale_containers, name="stale-containers", daemon=True).start()
-    ip, port = listen_address(cfg)
-    url = public_url(cfg)
     speakers = Speakers(cfg).start()
-    httpd = Server((ip, port), make_handler(cfg, url, speakers), speakers)
+
+    def make(ip: str, port: int) -> Server:
+        return Server((ip, port), make_handler(cfg, public_url(cfg), speakers), speakers)
+
+    httpd = _bind_when_online(cfg, make)
+    url = public_url(cfg)
     _SERVER = httpd
     print(f"lithify companion on {url} for: {', '.join(s.id + '=' + s.host for s in cfg.speakers)}", flush=True)
     try:

@@ -435,6 +435,25 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(self.calls, 2)
 
 
+class NetworkWaitTest(unittest.TestCase):
+    def test_started_before_the_network_it_waits_for_it(self):
+        cfg = config.Config(None, [speaker()], dict(config.COMPANION_DEFAULTS))
+        tries = []
+
+        def address(_cfg):
+            tries.append(1)
+            if len(tries) < 3:
+                raise OSError(101, "Network is unreachable")
+            return "192.168.1.20", 8095
+
+        out = io.StringIO()
+        with mock.patch.object(companion, "listen_address", address), contextlib.redirect_stdout(out):
+            got = companion._bind_when_online(cfg, lambda ip, port: (ip, port), stop=threading.Event(), wait=0.01)
+        self.assertEqual(got, ("192.168.1.20", 8095))
+        self.assertEqual(len(tries), 3)
+        self.assertEqual(out.getvalue().count("waiting for the network"), 1)  # (one line, not one per try)
+
+
 class BuildStateTest(unittest.TestCase):
     def setUp(self):
         saved = companion.build_status()

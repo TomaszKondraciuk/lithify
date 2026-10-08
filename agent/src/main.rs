@@ -366,11 +366,25 @@ fn shared() -> MutexGuard<'static, Shared> {
 /// Log a watchdog action and keep the last few for the web page.
 fn event(msg: &str) {
     log(msg);
+    let line = event_line(msg, SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0), system_uptime());
     let mut s = shared();
     if s.events.len() >= 20 {
         s.events.remove(0);
     }
-    s.events.push(format!("{} {msg}", utc_now()));
+    s.events.push(line);
+}
+
+/// An event with its UTC time. Right after a power cut the speaker's clock is not set yet
+/// (it says 1970 until the network gives it the time): then the time since the start instead.
+fn event_line(msg: &str, unix_now: u64, uptime: Option<f64>) -> String {
+    const CLOCK_SET: u64 = 1_600_000_000; // 2020-09-13: anything earlier is a clock not set yet
+    if unix_now >= CLOCK_SET {
+        return format!("{} {msg}", utc_now());
+    }
+    match uptime {
+        Some(up) => format!("{} s after the speaker started: {msg}", up as u64),
+        None => format!("at start-up: {msg}"),
+    }
 }
 
 // ── config ───────────────────────────────────────────────────────────────
@@ -1375,6 +1389,7 @@ fn cmd_exec(args: &[String]) -> ! {
     // librespot options can change without touching the Cast process list (no reboot).
     let mut args = args;
     let mut file_args: Vec<String> = Vec::new();
+    wait_for_network();
     // First: the settings are read after the wait, so a start after a restore gets the new ones.
     slow_down_restarts();
     if args.first().map(String::as_str) == Some("--args-file") {
@@ -1647,6 +1662,31 @@ fn slow_down_restarts() {
         log(&format!("librespot started {recent} times in the last minute: waiting {wait} s first"));
         thread::sleep(Duration::from_secs(wait));
     }
+}
+
+/// librespot needs the network (discovery, Spotify). Right after a power cut the speaker starts
+/// before its Wi-Fi is up, and a librespot started then exits at once ("No such device", "Network
+/// unreachable") - which counted as librespot failing. So wait for a default route first, at most
+/// a minute, then start anyway.
+fn wait_for_network() {
+    let online = || has_default_route(&fs::read_to_string("/proc/net/route").unwrap_or_default());
+    if online() {
+        return;
+    }
+    log("no network yet: librespot waits for it (at most 60 s)");
+    for _ in 0..30 {
+        thread::sleep(Duration::from_secs(2));
+        if online() {
+            log("the network is up: librespot starts");
+            return;
+        }
+    }
+    log("still no network after 60 s: librespot starts anyway");
+}
+
+/// Does /proc/net/route have a usable default route (the network is up)?
+fn has_default_route(table: &str) -> bool {
+    kernel_routes(table).iter().any(|r| r.len == 0 && !r.reject && r.net == Ipv4Addr::UNSPECIFIED)
 }
 
 /// librespot starts within the last `window` seconds that no stop by the agent explains.
@@ -2885,6 +2925,11 @@ impl CrashWatch {
             self.remember_good();
         }
         let Some(now) = system_uptime() else { return };
+        // Without a network librespot cannot run: that is not librespot failing (and must never
+        // roll back a good version after a router restart).
+        if !has_default_route(&fs::read_to_string("/proc/net/route").unwrap_or_default()) {
+            return;
+        }
         let newest = librespot_starts().into_iter().fold(0.0, f64::max);
         // Five unexplained starts within five minutes, the newest under a minute ago, librespot
         // not running steadily now, not handled yet.
@@ -3155,6 +3200,25 @@ mod tests {
                  wlan0\t0001A8C0\t00000000\t0001\t0\t0\t304\t00FFFFFF\t0\t0\t0\n\
                  *\t0000E8C7\t00000000\t0201\t0\t0\t0\t0000FFFF\t0\t0\t0\n";
         assert_eq!(parse_reject_routes(t), vec!["146.75.122.248/32".to_string(), "199.232.0.0/16".to_string()]);
+    }
+
+    #[test]
+    fn the_network_is_up_with_a_default_route_only() {
+        let head = "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n";
+        let default = "wlan0\t00000000\t0101A8C0\t0003\t0\t0\t304\t00000000\t0\t0\t0\n";
+        let lan = "wlan0\t0001A8C0\t00000000\t0001\t0\t0\t304\t00FFFFFF\t0\t0\t0\n";
+        let blocked_all = "*\t00000000\t00000000\t0201\t0\t0\t0\t00000000\t0\t0\t0\n";
+        assert!(has_default_route(&format!("{head}{default}{lan}")));
+        assert!(!has_default_route(&format!("{head}{lan}")));
+        assert!(!has_default_route(head));
+        assert!(!has_default_route(&format!("{head}{blocked_all}"))); // (an unreachable default is no network)
+    }
+
+    #[test]
+    fn events_before_the_clock_is_set_say_when_since_the_start() {
+        assert_eq!(event_line("x", 120, Some(42.7)), "42 s after the speaker started: x");
+        assert_eq!(event_line("x", 120, None), "at start-up: x");
+        assert!(event_line("x", 1_800_000_000, Some(5.0)).ends_with("Z x"));
     }
 
     #[test]

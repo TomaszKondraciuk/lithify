@@ -4,7 +4,7 @@
 //! header `X-Lithify: 1`: a page from another site cannot add it without a CORS preflight, which
 //! this server never grants (CSRF). Actions that change something also need `X-Lithify-Pin` when
 //! `ui_pin` is set. The Host header must be an IP address or a local name (DNS rebinding).
-//! Updates come only from the companion URL in agent.conf, never from a URL a request names.
+//! Updates come only from the companion URL in settings/install.conf, never from a URL a request names.
 
 use std::collections::VecDeque;
 use std::fs;

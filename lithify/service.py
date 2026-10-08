@@ -281,23 +281,26 @@ def call(cmd: list[str], grace: float = 45, **kw) -> int:
 
 
 def supervise(worker: list[str], log: Path | None = None, root: Path = ROOT,
-              healthy_after: float = HEALTHY_AFTER) -> int:
+              healthy_after: float = HEALTHY_AFTER, retry_after: float | None = None) -> int:
     """Run the companion worker; again whenever it asks for it (exit code RESTART). A worker that
     fails within `healthy_after` seconds of Lithify updating itself gets the code that last ran
     well back, once (`git reset --keep`: uncommitted changes are never lost), and is started
-    again; a broken update never loops."""
+    again; a broken update never loops. With `retry_after` (Windows, whose Task Scheduler does not
+    restart a program that exits with an error) a failed worker is started again after that many
+    seconds, twice as long after each failure in a row, at most five minutes."""
     out = _open_log(log) if log else None
     if out:
         sys.stdout = sys.stderr = out
     good = ""        # the code a worker last ran well with (healthy_after seconds or more)
     updated = False  # the worker runs code Lithify has just updated itself to
+    failures = 0     # failed runs in a row (retry_after)
     try:
         while True:
             code = updates.head(root)
             started = time.monotonic()
             rc = call(worker, stdout=out, stderr=out)
             if time.monotonic() - started >= healthy_after:
-                good, updated = code, False
+                good, updated, failures = code, False, 0
             if rc == RESTART:
                 updated = True
                 print("the companion starts again with Lithify's new code", flush=True)
@@ -311,6 +314,12 @@ def supervise(worker: list[str], log: Path | None = None, root: Path = ROOT,
                     continue
                 print(f"the companion fails with Lithify's new code (exit code {rc}), and going back to "
                       f"{good[:12]} failed: {why}", flush=True)
+            if rc not in (0, 130) and retry_after:
+                delay = min(retry_after * 2 ** failures, 300.0)
+                failures += 1
+                print(f"the companion stopped (exit code {rc}): starting it again in {delay:g} s", flush=True)
+                time.sleep(delay)
+                continue
             return rc
     except KeyboardInterrupt:
         return 130
