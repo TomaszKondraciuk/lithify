@@ -1,13 +1,19 @@
 #!/bin/sh
-# Lithify for Linux: double-click this file (or run `sh Lithify-Linux.sh` in a terminal).
+# Lithify for Linux.
+#
+# You see this text in an editor? Close it (in vim: type :q and press Enter), then right-click
+# Lithify-Linux.sh in the file manager and choose "Run as a Program" - or run it in a terminal:
+#   sh Lithify-Linux.sh
+# Widzisz ten tekst w edytorze? Zamknij go (w vimie: wpisz :q i naciśnij Enter), kliknij
+# Lithify-Linux.sh prawym przyciskiem w menedżerze plików i wybierz "Uruchom jako program".
 #
 # It runs install.sh from this folder (or downloads it when this file is on its own): that gets
 # the computer ready, asking before it installs anything, then opens the Lithify wizard in the
 # web browser, which finds the speaker and installs Lithify on it.
 #
-# If a double-click opens this file in a text editor instead: right-click it and choose "Run as
-# a Program" (or "Run"), or allow that first: Properties > Permissions > "Allow executing file as
-# program" (in a terminal: chmod +x Lithify-Linux.sh).
+# (GNOME's Files opens scripts in an editor on a double-click. When "Run as a Program" is
+# missing, allow it first: Properties > Permissions > "Allow executing file as program", or
+# chmod +x Lithify-Linux.sh in a terminal.)
 set -u
 INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/OWNER/lithify/main/install.sh}
 here=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || here=$(pwd)

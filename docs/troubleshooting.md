@@ -12,6 +12,16 @@ show what is running. `lithify logs` prints the agent's and librespot's recent l
 - "does not answer on the service console (TCP 23)": the speaker is not an LS9 model (see
   [platforms.md](platforms.md)), or something filters port 23 between you and it.
 
+## The build fails, or the computer is very slow during it
+
+- The first build compiles librespot on this computer. Its last step needs about 2.2 GB of free
+  memory at once; with less (a computer with 4 GB and a browser open), Lithify uses thin LTO,
+  which needs about 1.2 GB, and compiles once more that way when the system killed the compiler
+  for memory. If it still runs out, the wizard says so: close other programs and try again.
+  Docker Desktop (Windows, macOS) has a memory limit of its own: give it 4 GB or more.
+- `~/.cache/lithify/build.log` (Windows: `%LOCALAPPDATA%\lithify\cache\build.log`) has the
+  whole build.
+
 ## The new device does not appear in Spotify
 
 - Wait a minute after an install or reboot; `lithify status` should show librespot's version.

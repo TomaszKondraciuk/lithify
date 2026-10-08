@@ -34,7 +34,7 @@ usuwa jedno i drugie.
 |---|---|
 | **Windows** | `Lithify-Windows.cmd` – Windows raz zapyta, czy go uruchomić („Nie można zweryfikować wydawcy”): kliknij *Uruchom* (jeśli zamiast tego pokaże „System Windows ochronił ten komputer”: *Więcej informacji → Uruchom mimo to*) |
 | **macOS** | `Lithify-macOS.command` – za pierwszym razem: prawy przycisk → *Otwórz* → *Otwórz* (macOS 15 i nowsze: *Ustawienia systemowe → Prywatność i ochrona → Otwórz mimo to*) |
-| **Linux** | `Lithify-Linux.sh` – jeśli otworzy się w edytorze: prawy przycisk → *Uruchom jako program*, albo `sh Lithify-Linux.sh` w terminalu |
+| **Linux** | `Lithify-Linux.sh` – Ubuntu i inne systemy z GNOME otwierają go dwuklikiem w edytorze: zamknij edytor, kliknij plik prawym przyciskiem → *Uruchom jako program* (albo `sh Lithify-Linux.sh` w terminalu) |
 
 Okno pokazuje każdy krok i zostaje otwarte na końcu. Można je uruchomić ponownie w każdej chwili –
 pominie to, co już zrobione.
