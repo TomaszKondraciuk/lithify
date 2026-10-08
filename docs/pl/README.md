@@ -100,8 +100,8 @@ stronie głośnika w *Ustawieniach*.
   przeczytaj, potem uruchom `sh install.sh`. Na Windowsie otwórz `Lithify-Windows.cmd` w
   edytorze tekstu.
 
-Głośniki w osobnej sieci (VLAN), opcje instalatora i instalacja ręczna (po angielsku):
-[installation.md](../installation.md).
+Głośniki w osobnej sieci (VLAN), opcje instalatora i instalacja ręczna:
+[installation.md](installation.md).
 
 </details>
 
@@ -167,7 +167,7 @@ z Twoim komputerem.
   ponownie.
 - **Usuwanie:** polecenie `lithify uninstall`, uruchomione na komputerze, przywraca fabryczne
   oprogramowanie głośnika i pyta, zanim uruchomi go ponownie. Jak usunąć Lithify także z
-  komputera: [installation.md](../installation.md#uninstalling) (po angielsku).
+  komputera: [installation.md](installation.md#usuwanie).
 
 ## Pytania
 
@@ -195,15 +195,16 @@ i nie może jej zamknąć. Strona głośnika też nie ma PIN-u, dopóki go nie u
 Trzymaj głośniki w sieci, której ufasz. Więcej (po angielsku): [security.md](../security.md).
 
 **Gdzie szukać pomocy?**\
-Zajrzyj do [troubleshooting.md](../troubleshooting.md) (po angielsku), potem przejrzyj istniejące
+Zajrzyj do [troubleshooting.md](troubleshooting.md), potem przejrzyj istniejące
 zgłoszenia. Jeśli nic nie pasuje, załóż nowe i dołącz wynik `lithify status`.
 
 ## Dokumentacja
 
+- [Instalacja](installation.md): pytania instalatora, wymagania sieciowe, opcje, usuwanie
+- [Rozwiązywanie problemów](troubleshooting.md): głośnik nie znaleziony, brak w Spotify, brak dźwięku, zacięcia
+
 Po angielsku:
 
-- [Installation](../installation.md): pytania instalatora, wymagania sieciowe, opcje, usuwanie
-- [Troubleshooting](../troubleshooting.md): głośnik nie znaleziony, brak w Spotify, brak dźwięku, zacięcia
 - [Configuration](../configuration.md): wszystkie ustawienia, `config.toml`, kilka głośników
 - [Commands](../commands.md): polecenie `lithify`
 - [Security](../security.md): konsola głośnika, PIN strony, token Spotify
