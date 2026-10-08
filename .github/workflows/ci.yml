@@ -20,7 +20,7 @@ jobs:
           - { os: macos-latest, python: "3.11" }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
@@ -41,7 +41,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: installer/install.sh installs the command
         if: runner.os != 'Windows'
         env:
@@ -67,7 +67,7 @@ jobs:
     name: Agent (Rust)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Agent tests
         working-directory: agent
         run: cargo test --locked
@@ -76,6 +76,6 @@ jobs:
     name: Speaker scripts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Shell syntax
         run: for f in device/*/*.sh; do sh -n "$f"; done
