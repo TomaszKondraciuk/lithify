@@ -120,7 +120,8 @@ Sprawdzone komputery: Windows 11, macOS 15 i Ubuntu 24.04.
 ## Ograniczenia i ryzyko
 
 - **Na własne ryzyko.** Lithify nie pochodzi od Lithe Audio i producent go nie wspiera. Zmiana
-  oprogramowania głośnika może wpłynąć na wsparcie producenta. Nie ma żadnej gwarancji, zobacz [LICENSE](../../LICENSE).
+  oprogramowania głośnika może wpłynąć na wsparcie producenta. Nie ma żadnej gwarancji, zobacz
+  [LICENSE](../../LICENSE).
 - **Regulamin Spotify.** librespot to nieoficjalny klient. Spotify go nie popiera, a korzystanie z
   niego może naruszać regulamin Spotify.
 - **Jedno źródło naraz.** Głośnik ma jedno wyjście audio. Gdy zaczyna grać Cast, AirPlay,
@@ -186,8 +187,8 @@ przekaże mu token logowania, który głośnik zachowa, żeby po ponownym urucho
 Żeby go usunąć, wyloguj wszystkie urządzenia w ustawieniach konta Spotify.
 
 **Gdzie szukać pomocy?**\
-Zajrzyj do [troubleshooting.md](troubleshooting.md), potem przejrzyj istniejące
-zgłoszenia. Jeśli nic nie pasuje, załóż nowe i dołącz wynik `lithify status`.
+Zajrzyj do [troubleshooting.md](troubleshooting.md), potem przejrzyj istniejące zgłoszenia. Jeśli
+nic nie pasuje, załóż nowe i dołącz wynik `lithify status`.
 
 ## Dokumentacja
 

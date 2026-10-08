@@ -150,8 +150,8 @@ The other is a small program, the Lithify agent, that runs the watchdog and the 
 files live in one folder on the speaker's persistent storage.
 
 Your computer downloads each release from GitHub and checks every file before it uses it. The
-helper then copies the files to the speaker over your network. The speaker itself never downloads its
-software from the internet.
+helper then copies the files to the speaker over your network. The speaker itself never downloads
+its software from the internet.
 
 More detail: [docs/architecture.md](docs/architecture.md).
 
