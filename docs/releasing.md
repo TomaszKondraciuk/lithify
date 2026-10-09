@@ -11,7 +11,9 @@ The repository stays private until what Lithify found on the speakers has gone t
    only for public repositories: secret scanning with push protection, and a rule that `main` can
    be neither rewritten nor deleted. Upload `docs/images/social-preview.png`
    by hand (*Settings → General → Social preview*). Dependabot (`.github/dependabot.yml`) works
-   already.
+   already. The "Sponsor" button (`.github/FUNDING.yml`) and the README's link need an approved
+   GitHub Sponsors profile: check https://github.com/sponsors/TomaszKondraciuk first, and tick
+   *Settings → General → Features → Sponsorships*.
 3. Check that the repository has the secret `LITHIFY_SIGNING_KEY`: the private key of the Ed25519
    key pair whose public half is `[release] public_key` in `versions.toml`. The release workflow
    signs `SHA256SUMS` with it and stops when it is missing or does not match. Keep a copy of it

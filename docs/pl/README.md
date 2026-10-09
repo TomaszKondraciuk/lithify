@@ -207,6 +207,9 @@ Po angielsku:
 Zgłoszenia błędów i pull requesty są mile widziane, zobacz [CONTRIBUTING](../../.github/CONTRIBUTING.md)
 (po angielsku).
 
+Lithify jest darmowy i taki sam dla wszystkich. Jeśli Ci pomaga, możesz go wesprzeć dobrowolną
+darowizną przez [GitHub Sponsors](https://github.com/sponsors/TomaszKondraciuk).
+
 ## Licencja
 
 Lithify jest na licencji MIT, zobacz [LICENSE](../../LICENSE). Korzysta z

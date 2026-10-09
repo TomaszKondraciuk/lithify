@@ -208,6 +208,9 @@ nothing fits, open an issue and include the output of `lithify status`.
 
 Bug reports and pull requests are welcome, see [CONTRIBUTING](.github/CONTRIBUTING.md).
 
+Lithify is free and stays the same for everyone. If it helps you, you can support it with a
+voluntary gift through [GitHub Sponsors](https://github.com/sponsors/TomaszKondraciuk).
+
 ## License
 
 Lithify is MIT-licensed, see [LICENSE](LICENSE). It builds on
