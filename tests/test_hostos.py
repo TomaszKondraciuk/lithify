@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import types
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -320,8 +321,11 @@ class ServiceTest(unittest.TestCase):
             self.assertEqual(count.read_text(), "xxx")  # started three times, the last one ended for good
 
     def test_with_retry_after_a_failed_worker_is_started_again(self):
+        # (service's own time only: patching time.sleep itself would also catch other tests' threads)
+        slept = mock.Mock()
+        own_time = types.SimpleNamespace(monotonic=time.monotonic, sleep=slept)
         with tempfile.TemporaryDirectory() as d, mock.patch("sys.stdout"), \
-                mock.patch.object(service.time, "sleep") as slept:
+                mock.patch.object(service, "time", own_time):
             count = Path(d) / "runs"
             worker = [sys.executable, "-c", f"import pathlib, sys; p = pathlib.Path({str(count)!r}); "
                                             "n = len(p.read_text()) if p.exists() else 0; "
