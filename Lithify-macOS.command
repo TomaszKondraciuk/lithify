@@ -12,7 +12,7 @@
 # (or run `sh Lithify-macOS.command` in Terminal). Then macOS asks whether Terminal may access
 # files in the Downloads folder: Allow (the installer reads its files from there).
 set -u
-INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh}
+INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh}
 here=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || here=$(pwd)
 
 # The language of the messages: LITHIFY_LANG (pl or en), else the system's: on macOS its display

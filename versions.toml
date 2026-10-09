@@ -27,7 +27,7 @@ builder_base = "ghcr.io/rust-cross/rust-musl-cross:armv7-musleabihf"
 [release]
 # Where `lithify fetch` downloads a prebuilt bundle, e.g.
 # "https://github.com/<owner>/lithify/releases/latest/download". Empty: build locally.
-url = ""
+url = "https://github.com/TomaszKondraciuk/lithify/releases/latest/download"
 # The Ed25519 public key the releases' SHA256SUMS is signed with (SHA256SUMS.sig, in hex); `lithify
 # fetch` refuses a release from the address above without this signature. The private key is the
 # repository's secret LITHIFY_SIGNING_KEY (docs/releasing.md).

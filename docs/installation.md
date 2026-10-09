@@ -15,7 +15,7 @@ installer's options, and how to do the same by hand.
 ## Windows
 
 Download **`Lithify-Windows.cmd`** from the
-[latest release](https://github.com/OWNER/lithify/releases/latest) and double-click it. Windows
+[latest release](https://github.com/TomaszKondraciuk/lithify/releases/latest) and double-click it. Windows
 asks once whether to run a file from the internet. Click *Run* in the "The publisher could not be
 verified" dialog, or *More info → Run anyway* in the "Windows protected your PC" dialog.
 
@@ -31,7 +31,7 @@ The installer lists what the computer still needs and asks once:
 The same in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex
+irm https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/get.ps1 | iex
 ```
 
 ## macOS
@@ -39,7 +39,7 @@ irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex
 Open *Terminal* (⌘ Space, "Terminal"), paste this and press Return:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 When the computer has no Python 3.11 or newer, the installer offers a private Python just for
@@ -48,7 +48,7 @@ firewall is on, macOS asks whether Python may accept incoming network connection
 The speaker downloads its software from your computer.
 
 To install with a double-click instead, open **`Lithify-macOS.zip`** from the
-[latest release](https://github.com/OWNER/lithify/releases/latest) (Safari unpacks it), then
+[latest release](https://github.com/TomaszKondraciuk/lithify/releases/latest) (Safari unpacks it), then
 **`Lithify-macOS.command`** in it. The first time, macOS blocks it:
 
 - **macOS 15 and later:** *System Settings → Privacy & Security → Open Anyway*.
@@ -61,16 +61,16 @@ When macOS asks whether Terminal may access the Downloads folder: *Allow*.
 In a terminal:
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+wget -qO- https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 Ubuntu and Debian come with wget but not curl. Where curl is installed,
-`curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh` does
+`curl -fsSL https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh` does
 the same. With ufw or firewalld active, the installer shows the command that opens TCP 8095 and
 18096–18099 for the local network and offers to run it (with `sudo`).
 
 To install with a double-click instead, unpack **`Lithify-Linux.zip`** from the
-[latest release](https://github.com/OWNER/lithify/releases/latest) and run **`Lithify-Linux.sh`**
+[latest release](https://github.com/TomaszKondraciuk/lithify/releases/latest) and run **`Lithify-Linux.sh`**
 in it. GNOME (Ubuntu's desktop) opens it in a text editor: close the editor, right-click the
 file → *Run as a Program*.
 

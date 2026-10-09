@@ -1,10 +1,9 @@
 # Releasing
 
-The repository stays private until what Lithify found on the speakers has gone to Lithe Audio
-(responsible disclosure). Going public, once:
+Going public, once:
 
 1. `python3 .github/scripts/go-public.py <owner>/<repository>`: the launchers, the installers and
-   the READMEs then download from that repository (they say `OWNER/lithify` until then), and
+   the READMEs then download from that repository (they say `TomaszKondraciuk/lithify` until then), and
    `versions.toml` names the releases' bundle (`[release] url`).
 2. Commit and push that, and make the repository public. Then run
    `sh .github/scripts/after-public.sh <owner>/<repository>` once. It turns on what GitHub offers

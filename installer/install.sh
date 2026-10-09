@@ -1,7 +1,7 @@
 #!/bin/sh
 # Lithify installer for Linux and macOS:
 #
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 #   ./installer/install.sh           (from a checkout: uses it in place)
 #   Lithify-macOS.command, Lithify-Linux.sh: the same with a double-click
 #
@@ -30,7 +30,7 @@
 #   LITHIFY_LANG         the language of the messages: pl or en (otherwise this computer's)
 set -eu
 
-REPO_URL=${LITHIFY_REPO:-https://github.com/OWNER/lithify.git}
+REPO_URL=${LITHIFY_REPO:-https://github.com/TomaszKondraciuk/lithify.git}
 DEST=${LITHIFY_HOME:-$HOME/.local/share/lithify}
 BIN=${LITHIFY_BIN:-$HOME/.local/bin}
 # uv and the private Python, when this computer has no suitable Python: never inside DEST, which

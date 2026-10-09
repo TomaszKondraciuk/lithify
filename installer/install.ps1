@@ -1,6 +1,6 @@
 ﻿# Lithify installer for Windows:
 #
-#   irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex
+#   irm https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/get.ps1 | iex
 #   .\installer\install.ps1           (from a checkout: uses it in place)
 #   Lithify-Windows.cmd               (the same with a double-click)
 #
@@ -34,7 +34,7 @@
     # Programs this window runs write UTF-8 (winget's progress bar, names with diacritics): read
     # them as such, not in the console's OEM code page (852 on a Polish Windows: garbled bars).
     try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch { $null = $_ }
-    $Repo = if ($env:LITHIFY_REPO) { $env:LITHIFY_REPO } else { 'https://github.com/OWNER/lithify.git' }
+    $Repo = if ($env:LITHIFY_REPO) { $env:LITHIFY_REPO } else { 'https://github.com/TomaszKondraciuk/lithify.git' }
     $Root = Join-Path $env:LOCALAPPDATA 'lithify'
     $Dest = if ($env:LITHIFY_HOME) { $env:LITHIFY_HOME } else { Join-Path $Root 'app' }
     $Bin = Join-Path $Root 'bin'

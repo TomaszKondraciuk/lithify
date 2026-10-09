@@ -7,8 +7,8 @@
 
 **Spotify Connect for Lithe Audio Wi-Fi speakers, built on librespot.**
 
-[![Latest release](https://img.shields.io/github/v/release/OWNER/lithify)](https://github.com/OWNER/lithify/releases/latest)
-[![CI](https://github.com/OWNER/lithify/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/lithify/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/TomaszKondraciuk/lithify)](https://github.com/TomaszKondraciuk/lithify/releases/latest)
+[![CI](https://github.com/TomaszKondraciuk/lithify/actions/workflows/ci.yml/badge.svg)](https://github.com/TomaszKondraciuk/lithify/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [Install](#install) · [Limitations](#limitations-and-risks) · [FAQ](#faq) · [Documentation](#documentation) · [Po polsku](docs/pl/README.md)
@@ -52,18 +52,18 @@ You need:
 - **Spotify Premium**, because librespot does not work with free accounts;
 - a computer on the same network as the speaker: Windows 10 or 11, macOS, or Linux.
 
-**Windows:** download [**Lithify-Windows.cmd**](https://github.com/OWNER/lithify/releases/latest/download/Lithify-Windows.cmd) and double-click it.
+**Windows:** download [**Lithify-Windows.cmd**](https://github.com/TomaszKondraciuk/lithify/releases/latest/download/Lithify-Windows.cmd) and double-click it.
 
 **macOS:** open Terminal and run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 **Linux:** in a terminal, run:
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+wget -qO- https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 What happens next:
@@ -93,14 +93,14 @@ speaker's page under *Settings*.
   computer: click *Yes*.
 - **macOS:** if its firewall is on, it asks whether Python may accept incoming connections: click
   *Allow*. To install with a double-click instead, use **Lithify-macOS.zip** from the
-  [latest release](https://github.com/OWNER/lithify/releases/latest).
+  [latest release](https://github.com/TomaszKondraciuk/lithify/releases/latest).
 - **Linux:** **Lithify-Linux.zip** from the release works with a double-click too. On GNOME,
   right-click the file and choose *Run as a Program*. With ufw or firewalld on, the installer
   offers to open the ports the speaker uses.
 - If the computer has no Python 3.11 or newer, the installer adds one for your user only. It needs
   no administrator rights.
 - **To read the script before it runs,** download it first
-  (`curl -fsSLo install.sh https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh`),
+  (`curl -fsSLo install.sh https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh`),
   look at it, then run `sh install.sh`. On Windows, open `Lithify-Windows.cmd` in a text editor.
 
 Speakers on a separate network (VLAN), the installer's options, and the manual way are in

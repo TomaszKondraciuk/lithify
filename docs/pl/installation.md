@@ -15,7 +15,7 @@ instalatora i instalację ręczną.
 ## Windows
 
 Pobierz **`Lithify-Windows.cmd`** z
-[najnowszego wydania](https://github.com/OWNER/lithify/releases/latest) i kliknij go dwukrotnie.
+[najnowszego wydania](https://github.com/TomaszKondraciuk/lithify/releases/latest) i kliknij go dwukrotnie.
 Windows raz zapyta, czy uruchomić plik z internetu. W oknie „Nie można zweryfikować wydawcy”
 kliknij *Uruchom*, a w oknie „System Windows ochronił ten komputer” *Więcej informacji →
 Uruchom mimo to*.
@@ -33,7 +33,7 @@ Instalator pokazuje, czego komputerowi jeszcze brakuje, i raz prosi o zgodę:
 To samo w PowerShellu:
 
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex
+irm https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/get.ps1 | iex
 ```
 
 ## macOS
@@ -41,7 +41,7 @@ irm https://raw.githubusercontent.com/OWNER/lithify/main/installer/get.ps1 | iex
 Otwórz *Terminal* (⌘ Spacja, „Terminal”), wklej to polecenie i naciśnij Return:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 Gdy na komputerze nie ma Pythona 3.11 lub nowszego, instalator zaproponuje osobnego Pythona tylko
@@ -50,7 +50,7 @@ zapora macOS jest włączona, macOS zapyta, czy Python może przyjmować połąc
 *Pozwól*. Głośnik pobiera oprogramowanie z Twojego komputera.
 
 Instalacja dwuklikiem: otwórz **`Lithify-macOS.zip`** z
-[najnowszego wydania](https://github.com/OWNER/lithify/releases/latest) (Safari sam go rozpakuje),
+[najnowszego wydania](https://github.com/TomaszKondraciuk/lithify/releases/latest) (Safari sam go rozpakuje),
 a potem znajdujący się w nim **`Lithify-macOS.command`**. Za pierwszym razem macOS go zablokuje:
 
 - **macOS 15 i nowszy:** *Ustawienia systemowe → Prywatność i ochrona → Otwórz mimo to*.
@@ -63,16 +63,16 @@ Gdy macOS zapyta, czy Terminal może korzystać z folderu Pobrane: *Pozwól*.
 W terminalu:
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+wget -qO- https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 Ubuntu i Debian mają wget, ale nie mają curl. Tam, gdzie curl jest zainstalowany,
-`curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh`
+`curl -fsSL https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh`
 działa tak samo. Gdy działa ufw albo firewalld, instalator pokaże polecenie, które otwiera porty
 TCP 8095 i 18096–18099 dla sieci lokalnej, i zaproponuje, że je wykona (przez `sudo`).
 
 Instalacja dwuklikiem: rozpakuj **`Lithify-Linux.zip`** z
-[najnowszego wydania](https://github.com/OWNER/lithify/releases/latest) i uruchom znajdujący się w
+[najnowszego wydania](https://github.com/TomaszKondraciuk/lithify/releases/latest) i uruchom znajdujący się w
 nim **`Lithify-Linux.sh`**. GNOME (pulpit Ubuntu) otworzy go w edytorze tekstu: zamknij edytor,
 kliknij plik prawym przyciskiem → *Uruchom jako program*.
 

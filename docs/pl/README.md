@@ -48,18 +48,18 @@ Potrzebujesz:
 - konta **Spotify Premium**, bo librespot nie działa z darmowymi kontami;
 - komputera w tej samej sieci co głośnik: Windows 10 lub 11, macOS albo Linux.
 
-**Windows:** pobierz [**Lithify-Windows.cmd**](https://github.com/OWNER/lithify/releases/latest/download/Lithify-Windows.cmd) i kliknij go dwukrotnie.
+**Windows:** pobierz [**Lithify-Windows.cmd**](https://github.com/TomaszKondraciuk/lithify/releases/latest/download/Lithify-Windows.cmd) i kliknij go dwukrotnie.
 
 **macOS:** otwórz Terminal i uruchom:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 **Linux:** w terminalu uruchom:
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh | sh
+wget -qO- https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh | sh
 ```
 
 Co dalej:
@@ -89,14 +89,14 @@ stronie głośnika w *Ustawieniach*.
   komputera: kliknij *Tak*.
 - **macOS:** jeśli zapora jest włączona, pyta, czy Python może przyjmować połączenia
   przychodzące: kliknij *Pozwól*. Instalacja dwuklikiem: **Lithify-macOS.zip** z
-  [najnowszego wydania](https://github.com/OWNER/lithify/releases/latest).
+  [najnowszego wydania](https://github.com/TomaszKondraciuk/lithify/releases/latest).
 - **Linux:** **Lithify-Linux.zip** z wydania też działa dwuklikiem. W GNOME kliknij plik prawym
   przyciskiem i wybierz *Uruchom jako program*. Gdy działa ufw albo firewalld, instalator
   proponuje otwarcie portów, z których korzysta głośnik.
 - Jeśli na komputerze nie ma Pythona 3.11 lub nowszego, instalator doda go tylko dla Twojego
   użytkownika, bez uprawnień administratora.
 - **Chcesz przejrzeć skrypt przed uruchomieniem?** Najpierw go pobierz
-  (`curl -fsSLo install.sh https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh`),
+  (`curl -fsSLo install.sh https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh`),
   przeczytaj, potem uruchom `sh install.sh`. Na Windowsie otwórz `Lithify-Windows.cmd` w
   edytorze tekstu.
 

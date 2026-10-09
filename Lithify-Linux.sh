@@ -15,7 +15,7 @@
 # missing, allow it first: Properties > Permissions > "Allow executing file as program", or
 # chmod +x Lithify-Linux.sh in a terminal.)
 set -u
-INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/OWNER/lithify/main/installer/install.sh}
+INSTALL_URL=${LITHIFY_INSTALL_URL:-https://raw.githubusercontent.com/TomaszKondraciuk/lithify/main/installer/install.sh}
 here=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || here=$(pwd)
 self="$here/$(basename "$0")"
 

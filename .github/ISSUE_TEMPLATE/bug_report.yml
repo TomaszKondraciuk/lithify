@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the report. Please check [troubleshooting](https://github.com/OWNER/lithify/blob/main/docs/troubleshooting.md) first.
+        Thanks for the report. Please check [troubleshooting](https://github.com/TomaszKondraciuk/lithify/blob/main/docs/troubleshooting.md) first.
         **Do not paste raw logs from the speaker without reading them:** its own Spotify client writes your Spotify login into them.
   - type: textarea
     id: what
