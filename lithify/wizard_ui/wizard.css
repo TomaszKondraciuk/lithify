@@ -63,6 +63,16 @@ button:hover:not(:disabled), .button:hover { border-color: var(--muted); }
 button.primary, .button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
 button.big, .button.big { font-size: 16px; padding: 10px 22px; min-height: 44px; }
 button:disabled { opacity: .55; cursor: not-allowed; }
+/* what cannot be undone: outlined in red, never the button that stands out (as on the speaker page) */
+button.danger { background: var(--card); border-color: var(--bad); color: var(--bad); font-weight: 600; }
+button.danger:hover:not(:disabled) { background: var(--bad-bg); border-color: var(--bad); }
+label.tick { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+label.tick input { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: var(--bad); }
+.indent { margin: 4px 0 0 26px; }
+dialog { width: min(560px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 12px; padding: 20px; background: var(--card); color: var(--text); }
+dialog::backdrop { background: rgba(0, 0, 0, .5); }
+dialog h2 { margin-top: 0; font-size: 18px; }
+dialog .actions { justify-content: flex-end; }
 input { padding: 8px 10px; background: var(--card); min-height: 38px; }
 input[aria-invalid="true"] { border-color: var(--bad); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

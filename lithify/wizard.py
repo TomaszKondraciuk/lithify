@@ -36,7 +36,7 @@ import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 
-from . import __version__, bundle, config, console, discovery, hostos
+from . import __version__, bundle, config, console, discovery, hostos, removal, service
 from .companion import scrub
 from .device import ROOT, Device
 
@@ -548,6 +548,8 @@ class Wizard:
         self.installed = False  # an installation succeeded (the exit code)
         self.firewall = firewall_help()
         self.software = software()  # (again at each check and installation: the page's times and words)
+        self.set_up = self._set_up()  # (the welcome step offers to remove Lithify from this computer)
+        self.removal: dict | None = None  # what removing it takes here, once the page asked
 
     # ── for the page ──
     def state(self) -> dict:
@@ -558,7 +560,8 @@ class Wizard:
                     "computer": copy.deepcopy(self.computer), "speakers": [dict(s) for s in self.speakers],
                     "searched": self.searched, "chosen": dict(self.chosen) if self.chosen else None,
                     "outcome": dict(self.outcome) if self.outcome else None, "installed": self.installed,
-                    "firewall": copy.deepcopy(self.firewall), "software": self.software}
+                    "firewall": copy.deepcopy(self.firewall), "software": self.software, "set_up": self.set_up,
+                    "removal": copy.deepcopy(self.removal)}
 
     def check_computer(self, _body: dict) -> tuple[int, dict]:
         return (202, {"started": True}) if self._begin("check", self._run_check, step="computer") else BUSY
@@ -591,6 +594,8 @@ class Wizard:
         step = body.get("step")
         with self.lock:
             if self.task and not self.task.finished and self.task.kind == "install":
+                return BUSY
+            if self.task and not self.task.finished and self.task.kind == "uninstall":
                 return BUSY
             if step not in ("welcome", "computer", "speaker"):
                 return 400, {"error": f"no step {step!r} to go to", "error_key": "bad_step"}
@@ -635,6 +640,39 @@ class Wizard:
         if p is not None:
             threading.Thread(target=terminate, args=(p,), name="wizard-cancel", daemon=True).start()
         return 202, {"stopping": True}
+
+    def plan_removal(self, _body: dict) -> tuple[int, dict]:
+        """What removing Lithify from this computer takes (a step: Docker may answer slowly)."""
+        return (202, {"started": True}) if self._begin("plan-removal", self._run_plan) else BUSY
+
+    def uninstall(self, body: dict) -> tuple[int, dict]:
+        """Remove Lithify from this computer, as `lithify uninstall --computer` does; with
+        "speakers", first from every speaker in its configuration (`--all`)."""
+        with self.lock:
+            if self.removal is None:
+                return 409, {"error": "say what is removed first", "error_key": "no_plan"}
+            if not self._begin("uninstall", self._run_uninstall, body.get("speakers") is True, step="remove"):
+                return BUSY
+        return 202, {"started": True}
+
+    def show_folder(self, _body: dict) -> tuple[int, dict]:
+        """The file manager at Lithify's own folder, which is left for the person to delete."""
+        with self.lock:
+            later = list((self.removal or {}).get("later", []))
+        if not later:
+            return 409, {"error": "nothing is left to delete", "error_key": "nothing"}
+        folder = Path(later[0])
+        try:
+            if hostos.WINDOWS:  # (the folder chosen in its parent; a path never holds a quote on Windows)
+                subprocess.Popen(f'explorer /select,"{folder}"', **hostos.no_window())
+            elif hostos.MACOS:
+                subprocess.Popen(["open", "-R", str(folder)], stdin=subprocess.DEVNULL)
+            else:
+                subprocess.Popen(["xdg-open", str(folder.parent)], stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            return 500, {"error": f"cannot open a file manager: {e}", "error_key": "no_file_manager"}
+        return 200, {"shown": str(folder)}
 
     def quit(self, _body: dict) -> tuple[int, dict]:
         return 200, {"bye": True}  # (the server stops once this answer is out, see Handler.do_POST)
@@ -700,6 +738,39 @@ class Wizard:
                 more = extras(key, self.firewall) if key else {}
                 self.task.end(ok, time.time(), key, detail[-6000:], params or {}, more)
                 self._changed()
+
+    def _set_up(self) -> bool:
+        """Is Lithify set up on this computer: a speaker in its configuration, or the helper's service?"""
+        try:
+            if config.load(self.config_path).speakers:
+                return True
+        except config.ConfigError:
+            return True  # (a configuration is there, if a broken one)
+        return bool(service.installed())
+
+    def _run_plan(self) -> None:
+        plan = removal.plan()
+        try:
+            speakers = [{"id": s.id, "host": s.host} for s in config.load(self.config_path).speakers]
+        except config.ConfigError:
+            speakers = []
+        found = {"parts": [{"key": x.key, "detail": scrub(x.detail)} for x in plan.parts],
+                 "later": [str(x) for x in plan.later],
+                 "delete": removal.delete_command(plan.later) if plan.later else "", "speakers": speakers}
+        with self.lock:
+            self.removal = found
+            self._finish(True)
+
+    def _run_uninstall(self, speakers: bool) -> None:
+        rc = self._run(["uninstall", "--all" if speakers else "--computer", "--yes"], child_env(None))
+        set_up = self._set_up()
+        with self.lock:
+            self.set_up = set_up
+            lines = list(self.task.lines) if self.task else []
+        if rc != 0:
+            self._finish(False, "uninstall_failed", "\n".join(lines[-30:]))
+            return
+        self._finish(True)
 
     def _cancelled(self) -> bool:
         with self.lock:
@@ -900,6 +971,8 @@ ACTIONS: dict[str, Callable[[Wizard, dict], tuple[int, dict]]] = {
     "/api/discover": Wizard.discover, "/api/add-host": Wizard.add_host, "/api/step": Wizard.set_step,
     "/api/choose": Wizard.choose,
     "/api/install": Wizard.install, "/api/cancel": Wizard.cancel, "/api/quit": Wizard.quit,
+    "/api/plan-removal": Wizard.plan_removal, "/api/uninstall": Wizard.uninstall,
+    "/api/show-folder": Wizard.show_folder,
 }
 
 

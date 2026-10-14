@@ -18,12 +18,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from lithify import bundle, cli, config, console, discovery, hostos, platforms, wizard
+from lithify import bundle, cli, config, console, discovery, hostos, platforms, removal, wizard
 
 ROOT = Path(__file__).resolve().parent.parent
 UI = ROOT / "lithify" / "wizard_ui"
 FIREWALL = {"ports": hostos.FIREWALL_PORTS, "lan": "192.168.1.0/24", "commands": ["ufw ...", "firewall-cmd ..."]}
 SPEAKER = {"host": "192.168.1.109", "name": "Kuchnia", "model": "WiFi Speaker V2", "spotify_esdk": "3.88"}
+SET_UP = wizard.Wizard._set_up  # (the server tests replace it: what this computer has is not theirs)
 
 # What `lithify install` prints for a first installation that builds the bundle.
 FRESH = [
@@ -386,6 +387,7 @@ class ServerCase(unittest.TestCase):
         for target, name, value in ((bundle, "CACHE", Path(tmp.name)),
                                     (wizard, "firewall_help", lambda: dict(FIREWALL)),  # (one of its own each)
                                     (wizard, "_published", lambda: False),  # (as before going public)
+                                    (wizard.Wizard, "_set_up", lambda _self: False),  # (not this computer's)
                                     (bundle, "remove_stale_containers", lambda: 0)):
             patch = mock.patch.object(target, name, value)
             patch.start()
@@ -527,7 +529,8 @@ class PageTest(ServerCase):
                                                                              "unsupported_model", "no_answer",
                                                                              "probe_failed")}
         sent |= {f"err_{k}" for k in ("build_failed", "unknown", "cancelled", "timeout", "docker_desktop_missing",
-                                      "docker_start_timeout")}
+                                      "docker_start_timeout", "uninstall_failed")}
+        sent |= {f"rp_{k}" for k in removal.PART_KEYS}  # (what removing Lithify takes, part by part)
         sent |= {f"ph_{p}" for p in wizard.PHASES} | {f"sub_{s}" for _, s, _ in wizard._BUILD_STEPS if s}
         sent |= {"sub_download", "sub_link", "helper_failed", "helper_no_systemd", "docker_published",
                  "bundle_published",
@@ -535,10 +538,83 @@ class PageTest(ServerCase):
         self.assertEqual(sent - en, set())
         # how to fix each problem, on every system (a text of its own where they differ)
         problems = {k for k, _ in wizard._ERRORS} | {"build_failed", "unknown", "cancelled", "timeout", "docker_slow",
-                                                     "docker_desktop_missing", "docker_start_timeout"}
+                                                     "docker_desktop_missing", "docker_start_timeout",
+                                                     "uninstall_failed"}
         for problem in sorted(problems):
             for os_name in ("windows", "macos", "linux"):
                 self.assertTrue({f"fix_{problem}_{os_name}", f"fix_{problem}"} & en, (problem, os_name))
+
+
+class RemovalTest(ServerCase):
+    """Removing Lithify from this computer: the window first says what goes, then `lithify
+    uninstall` runs as a child, exactly as on the command line."""
+
+    PLAN = removal.Plan([removal.Part("the configuration", key="config", detail="/home/u/.config/lithify")],
+                        [Path("/home/u/.local/share/lithify")], [])
+
+    def plan(self) -> dict:
+        cfg = config.Config(None, [config.Speaker("kuchnia", "192.168.1.109", "Kuchnia")], {})
+        with mock.patch.object(removal, "plan", return_value=self.PLAN), \
+                mock.patch.object(config, "load", return_value=cfg):
+            self.assertEqual(self.api("POST", "/api/plan-removal", {})[0], 202)
+            return self.finished()
+
+    def test_the_window_says_what_goes_and_which_speakers_could_go_too(self):
+        st = self.plan()
+        later = [Path("/home/u/.local/share/lithify")]
+        self.assertEqual(st["removal"], {"parts": [{"key": "config", "detail": "/home/u/.config/lithify"}],
+                                         "later": [str(later[0])], "delete": removal.delete_command(later),
+                                         "speakers": [{"id": "kuchnia", "host": "192.168.1.109"}]})
+        self.assertEqual(st["step"], "welcome")
+
+    def test_nothing_is_removed_before_the_window_said_what(self):
+        self.assertEqual(self.api("POST", "/api/uninstall", {"speakers": False}), (409, {
+            "error": "say what is removed first", "error_key": "no_plan"}))
+
+    def test_removing_runs_lithify_uninstall(self):
+        self.plan()
+        for body, args in (({"speakers": False}, ["uninstall", "--computer", "--yes"]),
+                           ({"speakers": True}, ["uninstall", "--all", "--yes"]),
+                           ({"speakers": "yes"}, ["uninstall", "--computer", "--yes"])):  # (true only when it is)
+            fakes = Fakes(["==> removing Lithify from kuchnia (192.168.1.109)"])
+            with self.subTest(body=body), mock.patch.object(wizard, "stream", fakes.stream):
+                self.assertEqual(self.api("POST", "/api/uninstall", body)[0], 202)
+                st = self.until(lambda s: s["task"]["kind"] == "uninstall" and s["task"]["finished"])
+                self.assertEqual(fakes.calls[0][0][2:], args)
+                self.assertEqual((st["step"], st["task"]["ok"]), ("remove", True))
+
+    def test_a_removal_that_failed_says_so_on_its_step(self):
+        self.plan()
+        fakes = Fakes(["error: cannot reach the speaker console 192.168.1.109:23"], rc=1)
+        with mock.patch.object(wizard, "stream", fakes.stream):
+            self.api("POST", "/api/uninstall", {"speakers": True})
+            st = self.until(lambda s: s["task"]["kind"] == "uninstall" and s["task"]["finished"])
+        task = st["task"]
+        self.assertEqual((task["ok"], task["error_key"], task["error_fix"], st["step"]),
+                         (False, "uninstall_failed", "fix_uninstall_failed", "remove"))
+        self.assertIn("cannot reach the speaker console", task["error_detail"])
+
+    def test_the_folder_left_to_delete_is_shown_and_no_other(self):
+        self.assertEqual(self.api("POST", "/api/show-folder", {})[0], 409)
+        self.plan()
+        with mock.patch.object(wizard.subprocess, "Popen") as popen:
+            # (a path in the request is ignored: only the plan's folder is ever shown)
+            self.assertEqual(self.api("POST", "/api/show-folder", {"path": "/etc"})[0], 200)
+        shown = popen.call_args.args[0]
+        folder = Path("/home/u/.local/share/lithify")
+        expected = (f'explorer /select,"{folder}"' if hostos.WINDOWS else ["open", "-R", str(folder)]
+                    if hostos.MACOS else ["xdg-open", str(folder.parent)])
+        self.assertEqual(shown, expected)
+
+    def test_set_up_means_a_speaker_or_the_helper(self):
+        wiz = self.wiz
+        cfg = config.Config(None, [config.Speaker("kuchnia", "192.168.1.109", "Kuchnia")], {})
+        empty = config.Config(None, [], {})
+        cases = ((cfg, "", True), (empty, "the systemd user service x", True), (empty, "", False))
+        for loaded, helper, expected in cases:
+            with self.subTest(helper=helper), mock.patch.object(config, "load", return_value=loaded), \
+                    mock.patch.object(wizard.service, "installed", return_value=helper):
+                self.assertEqual(SET_UP(wiz), expected)
 
 
 class StateTest(ServerCase):
@@ -546,7 +622,8 @@ class StateTest(ServerCase):
         status, st = self.api("GET", "/api/state")
         self.assertEqual(status, 200)
         self.assertEqual(set(st), {"rev", "now", "version", "os", "lang", "step", "task", "computer", "speakers",
-                                   "searched", "chosen", "outcome", "installed", "firewall", "software"})
+                                   "searched", "chosen", "outcome", "installed", "firewall", "software", "set_up",
+                                   "removal"})
         self.assertEqual((st["step"], st["task"], st["speakers"], st["installed"]), ("welcome", None, [], False))
         self.assertEqual(st["os"], wizard.OS)
         self.assertEqual(st["firewall"]["ports"], "8095,18096-18099")

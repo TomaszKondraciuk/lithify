@@ -63,6 +63,16 @@
     </div>
   </section>
 
+  <section class="card" id="rm-entry" aria-labelledby="h-rm-entry" hidden>
+    <h2 id="h-rm-entry" data-t="rm_title">Remove Lithify from this computer</h2>
+    <p data-t="rm_lead">Lithify is set up on this computer. If you no longer need it, you can remove it here.</p>
+    <div class="actions">
+      <label class="tick"><input type="checkbox" id="rm-want"> <span data-t="rm_want">I want to remove Lithify from this computer</span></label>
+      <button type="button" id="btn-rm" class="danger" data-act="plan-removal" data-t="rm_button" disabled>Remove Lithify</button>
+    </div>
+    <p id="rm-checking" class="msg spin" data-t="rm_checking" hidden>Checking what there is to remove…</p>
+  </section>
+
   <section class="card step" id="s-computer" data-step="computer" aria-labelledby="h-computer" hidden>
     <h2 id="h-computer" tabindex="-1" data-t="computer_title">Checking this computer</h2>
     <p class="lead" data-t="computer_lead">Lithify needs a few things on this computer.</p>
@@ -157,11 +167,49 @@
     </div>
   </section>
 
+  <section class="card step" id="s-remove" data-step="remove" aria-labelledby="h-remove" hidden>
+    <h2 id="h-remove" tabindex="-1" data-t="remove_title">Removing Lithify</h2>
+    <p id="remove-status" class="msg"></p>
+    <div id="remove-last" hidden>
+      <p data-t="rm_last">One step is left: click Finish, then delete this folder. It held Lithify itself.</p>
+      <ul id="remove-folders" class="plain"></ul>
+      <div class="actions">
+        <button type="button" data-act="show-folder" data-t="rm_show">Show the folder</button>
+      </div>
+      <p class="hint" data-t="rm_or_cmd">Or, once this page is closed, run this command in a terminal:</p>
+      <div id="remove-cmd"></div>
+    </div>
+    <div class="errslot"></div>
+    <div class="actions">
+      <button type="button" id="btn-rm-back" data-act="back-welcome" data-t="back" hidden>Back</button>
+      <button type="button" id="btn-rm-finish" class="primary big" data-act="finish" data-t="finish" hidden>Finish</button>
+    </div>
+    <details class="log">
+      <summary data-t="log_title">Technical details (log)</summary>
+      <pre id="remove-log" aria-live="off" tabindex="0"></pre>
+    </details>
+  </section>
+
   <section class="card" id="s-closed" aria-labelledby="h-closed" hidden>
     <h2 id="h-closed" tabindex="-1"></h2>
     <p id="closed-text"></p>
   </section>
 </main>
+
+<dialog id="rm-dialog" aria-labelledby="rm-dialog-title">
+  <h2 id="rm-dialog-title" data-t="rm_dialog_title">Remove Lithify from this computer?</h2>
+  <p data-t="rm_dialog_lead">This goes:</p>
+  <ul id="rm-parts" class="plain"></ul>
+  <p id="rm-later" class="hint"></p>
+  <div id="rm-speakers-box" hidden>
+    <label class="tick"><input type="checkbox" id="rm-speakers"> <span id="rm-speakers-label"></span></label>
+    <p class="hint indent" data-t="rm_speakers_note">Each speaker gets its stock software back and restarts.</p>
+  </div>
+  <div class="actions">
+    <button type="button" id="rm-cancel" data-t="cancel">Cancel</button>
+    <button type="button" id="rm-go" class="danger" data-t="rm_confirm">Remove</button>
+  </div>
+</dialog>
 
 <footer data-t="footer">This page runs on this computer only; other devices on your network cannot open it.</footer>
 <script src="/wizard.js"></script>
