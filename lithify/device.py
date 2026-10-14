@@ -149,8 +149,11 @@ class Device:
         return self.script("restart-services", wait=40)
 
     def rollback(self, mode: str, purge: bool = False) -> str:
+        """rollback.sh: the previous version, or the stock service list (with `purge`, Lithify
+        removed from the speaker; NOTHING_TO_REMOVE in the output when none of it was there)."""
         out = self.script("rollback", f"{mode} purge" if purge else mode, wait=120)
-        if ("VERSION_ROLLED_BACK" if mode == "version" else "STOCK_RESTORED") not in out:
+        done = ("VERSION_ROLLED_BACK",) if mode == "version" else ("STOCK_RESTORED", "NOTHING_TO_REMOVE")
+        if not any(marker in out for marker in done):
             raise RuntimeError(f"the rollback did not finish on the speaker:\n{out[-2000:]}")
         return out
 
