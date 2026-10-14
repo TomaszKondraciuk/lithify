@@ -31,7 +31,7 @@ body:
     attributes:
       label: Lithify version and speaker firmware
       description: Both are on the speaker's page (Updates and System cards), or in `lithify status`.
-      placeholder: "Lithify 0.1.0, firmware p15525.144.0"
+      placeholder: "Lithify 0.2.0, firmware p15525.144.0"
   - type: dropdown
     id: os
     attributes:
