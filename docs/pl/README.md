@@ -164,9 +164,10 @@ z Twoim komputerem.
   swoje ustawienia. Przyciskiem **Przywróć poprzednią wersję** cofniesz aktualizację.
 - **Po aktualizacji firmware** głośnik może przestać uruchamiać Lithify. Uruchom instalator
   ponownie.
-- **Usuwanie:** polecenie `lithify uninstall`, uruchomione na komputerze, przywraca fabryczne
-  oprogramowanie głośnika i pyta, zanim uruchomi go ponownie. Jak usunąć Lithify także z
-  komputera: [installation.md](installation.md#usuwanie).
+- **Usuwanie:** przycisk **Usuń Lithify** na stronie głośnika albo polecenie `lithify uninstall`
+  na komputerze przywraca fabryczne oprogramowanie głośnika i uruchamia go ponownie.
+  `lithify uninstall --all` usuwa Lithify ze wszystkich głośników, a potem z komputera:
+  [installation.md](installation.md#usuwanie).
 
 ## Pytania
 

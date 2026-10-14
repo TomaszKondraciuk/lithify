@@ -1,15 +1,18 @@
 """The device scripts: they must fit the console (no single quotes, short lines), and install.sh
 and rollback.sh are run for real in a sandbox (a fake install directory, failures injected)."""
 import hashlib
+import json
 import os
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
-from lithify import console
+from lithify import console, platforms
 
 DEVICE = Path(__file__).resolve().parent.parent / "device"
 SHELL = shutil.which("mksh") or shutil.which("dash")
@@ -132,6 +135,180 @@ class InstallSandboxTest(unittest.TestCase):
         self.assertEqual(self._label(), "librespot=OLD")
         self.assertFalse((self.base / "new").exists())
         self.assertFalse((self.base / "prev").exists())
+
+
+# The Cast service list (shortened) as the speaker has it from the factory.
+STOCK_LIST = json.dumps([{"name": "cast_shell", "command": ["/system/chrome/cast_shell"]},
+                         {"name": "setup", "command": ["/system/chrome/setup_server"]}], indent=2) + "\n"
+
+# pidof for the sandbox: only the programs it started itself (pids in $SANDBOX/pids/NAME, started
+# as $SANDBOX/progs/NAME), never a process of this computer; one that has ended is not there.
+FAKE_PIDOF = r"""#!/bin/sh
+out=
+for n in "$@"; do
+  [ -f "$SANDBOX/pids/$n" ] || continue
+  for p in $(cat "$SANDBOX/pids/$n"); do
+    grep -q "$SANDBOX/progs/" /proc/$p/cmdline 2>/dev/null || continue
+    [ "$(cut -d" " -f3 /proc/$p/stat 2>/dev/null)" = Z ] && continue
+    out="$out $p"
+  done
+done
+[ -n "$out" ] && echo $out
+exit 0
+"""
+
+# ip for the sandbox: the speaker's routing table, with two fail-fast routes; deletions are noted.
+FAKE_IP = """#!/bin/sh
+case "$*" in
+  route) cat "$SANDBOX/routes" ;;
+  "route del "*) echo "$*" >> "$SANDBOX/ip.log" ;;
+  *) echo "ip: not in the sandbox: $*" >&2; exit 1 ;;
+esac
+"""
+ROUTES = ("default via 192.168.1.1 dev wlan0  metric 304 \nunreachable 151.101.2.248 \n"
+          "unreachable 199.232.0.0/16 \n192.168.1.0/24 dev wlan0  proto kernel  scope link  src 192.168.1.109 \n")
+
+
+@unittest.skipUnless(TOOLS and os.path.isdir("/proc/self"), "needs mksh or dash, busybox, curl, openssl and /proc")
+class UninstallSandboxTest(unittest.TestCase):
+    """rollback.sh stock [purge] on a fake speaker: its install directory, the Cast service list,
+    its programs, routes and files in RAM, as the console runs it."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="lithify-uninstall-"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.base, self.legacy, self.pj = self.tmp / "lithify", self.tmp / "cc", self.tmp / "process.json"
+        self.ram, self.bin, self.pids = self.tmp / "ram", self.tmp / "bin", self.tmp / "pids"
+        for d in (self.base / "backup", self.base / "cache", self.base / "prev", self.ram / "lithify-librespot",
+                  self.bin, self.pids):
+            d.mkdir(parents=True)
+        (self.base / "librespot").write_text("librespot\n")
+        (self.base / "cache" / "credentials.json").write_text("{}\n")
+        (self.base / "backup" / "process.json.orig").write_text(STOCK_LIST)
+        self.ours = platforms.render_process_list(json.loads(STOCK_LIST), str(self.base))
+        self.pj.write_text(self.ours)
+        for name in ("lithify-agent.log", "lithify-official.hidden", "lithify-librespot.state"):
+            (self.ram / name).write_text("x\n")
+        (self.ram / "lithify-librespot" / "track.tmp").write_text("audio\n")
+        (self.ram / "other.log").write_text("not ours\n")
+        (self.tmp / "routes").write_text(ROUTES)
+        for name, text in (("pidof", FAKE_PIDOF), ("ip", FAKE_IP),
+                           ("reboot", '#!/bin/sh\necho rebooted >> "$SANDBOX/reboot.log"\n')):
+            (self.bin / name).write_text(text)
+            (self.bin / name).chmod(0o755)
+
+    def _start(self, name: str) -> subprocess.Popen:
+        """One of the speaker's programs: a process that waits, named where the fake pidof finds it."""
+        p = subprocess.Popen([str(self.tmp / "progs" / name), "-c", "import time; time.sleep(60)"],
+                             executable=sys.executable)
+        self.addCleanup(p.kill)
+        threading.Thread(target=p.wait, daemon=True).start()  # (reaped at once: an ended one is gone)
+        with (self.pids / name).open("a") as f:
+            f.write(f"{p.pid}\n")
+        return p
+
+    def _run(self, *args: str) -> str:
+        env = {**os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}", "SANDBOX": str(self.tmp),
+               "LITHIFY_BASE": str(self.base), "LITHIFY_LEGACY": str(self.legacy),
+               "LITHIFY_PROCESS_LIST": str(self.pj), "LITHIFY_TMP": str(self.ram)}
+        script = DEVICE / "ls9" / "rollback.sh"
+        r = subprocess.run(["sh", "-c", f'umask 077; exec {SHELL} {script} "$@"', "sh", *args],
+                           env=env, cwd=self.tmp, capture_output=True, text=True, timeout=60)
+        return r.stdout + r.stderr
+
+    def _gone(self, p: subprocess.Popen) -> bool:
+        try:
+            p.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            return False
+        return True
+
+    def test_uninstall_puts_the_stock_list_back_and_leaves_nothing(self):
+        agent, librespot = self._start("lithify-agent"), self._start("librespot")
+        out = self._run("stock", "purge")
+        self.assertIn("STOCK_RESTORED", out)
+        self.assertEqual(self.pj.read_text(), STOCK_LIST)
+        self.assertFalse(self.base.exists())
+        self.assertFalse(self.tmp.joinpath("lithify.removed").exists())
+        self.assertTrue(self._gone(agent) and self._gone(librespot))
+        self.assertEqual((self.tmp / "ip.log").read_text().splitlines(),
+                         ["route del unreachable 151.101.2.248", "route del unreachable 199.232.0.0/16"])
+        # In RAM: Lithify's files are gone; the stock list stays there until the reboot.
+        self.assertEqual(sorted(p.name for p in self.ram.iterdir()), ["other.log", "process.json.orig"])
+        self.assertEqual((self.ram / "process.json.orig").read_text(), STOCK_LIST)
+        self.assertFalse((self.tmp / "reboot.log").exists())
+
+    def test_the_reboot_is_left_to_the_caller_unless_asked_for(self):
+        out = self._run("stock", "purge", "reboot")
+        self.assertIn("STOCK_RESTORED", out)
+        self.assertEqual((self.tmp / "reboot.log").read_text(), "rebooted\n")
+
+    def test_a_list_a_firmware_update_put_in_stays(self):
+        newer = STOCK_LIST.replace("setup_server", "setup_server_v2")
+        self.pj.write_text(newer)
+        out = self._run("stock", "purge")
+        self.assertIn("no Lithify entries: left as it is", out)
+        self.assertIn("STOCK_RESTORED", out)
+        self.assertEqual(self.pj.read_text(), newer)  # not the older backup
+        self.assertFalse(self.base.exists())
+
+    def test_without_a_backup_nothing_changes(self):
+        (self.base / "backup" / "process.json.orig").unlink()
+        agent = self._start("lithify-agent")
+        out = self._run("stock", "purge")
+        self.assertIn("FAIL no stock backup", out)
+        self.assertNotIn("STOCK_RESTORED", out)
+        self.assertEqual(self.pj.read_text(), self.ours)
+        self.assertTrue((self.base / "cache" / "credentials.json").exists())
+        self.assertIsNone(agent.poll())
+        self.assertFalse((self.tmp / "ip.log").exists())
+
+    def test_a_backup_that_is_not_a_cast_list_is_refused(self):
+        (self.base / "backup" / "process.json.orig").write_text("[]\n")
+        out = self._run("stock", "purge")
+        self.assertIn("is not a Cast service list", out)
+        self.assertEqual(self.pj.read_text(), self.ours)
+        self.assertTrue(self.base.exists())
+
+    def test_an_install_from_before_the_name_goes_too(self):
+        # (cc_ entries and /lsync/cc; the backup only there)
+        shutil.rmtree(self.base)
+        (self.legacy / "backup").mkdir(parents=True)
+        (self.legacy / "backup" / "process.json.orig").write_text(STOCK_LIST)
+        self.pj.write_text(self.ours.replace("lithify_", "cc_"))
+        out = self._run("stock", "purge")
+        self.assertIn("STOCK_RESTORED", out)
+        self.assertEqual(self.pj.read_text(), STOCK_LIST)
+        self.assertFalse(self.legacy.exists())
+
+    def test_a_speaker_without_lithify_has_nothing_to_remove(self):
+        shutil.rmtree(self.base)
+        shutil.rmtree(self.ram)
+        self.ram.mkdir()
+        self.pj.write_text(STOCK_LIST)
+        out = self._run("stock", "purge")
+        self.assertIn("NOTHING_TO_REMOVE", out)
+        self.assertNotIn("STOCK_RESTORED", out)
+        self.assertFalse((self.tmp / "ip.log").exists())
+
+    def test_an_uninstall_waiting_for_its_reboot_is_not_nothing(self):
+        # Removed before, not restarted since: the next uninstall still asks for the reboot.
+        self._run("stock", "purge")
+        self.assertIn("STOCK_RESTORED", self._run("stock", "purge"))
+
+    def test_a_purge_cut_off_halfway_is_finished(self):
+        self.pj.write_text(STOCK_LIST)
+        self.base.rename(self.tmp / "lithify.removed")
+        out = self._run("stock", "purge")
+        self.assertIn("STOCK_RESTORED", out)
+        self.assertFalse((self.tmp / "lithify.removed").exists())
+
+    def test_the_stock_list_alone_keeps_the_files(self):
+        out = self._run("stock")
+        self.assertIn("STOCK_RESTORED - reboot to finish", out)
+        self.assertEqual(self.pj.read_text(), STOCK_LIST)
+        self.assertTrue((self.base / "cache" / "credentials.json").exists())
+        self.assertFalse((self.ram / "process.json.orig").exists())
 
 
 if __name__ == "__main__":

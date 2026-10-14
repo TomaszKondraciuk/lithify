@@ -155,6 +155,30 @@
       helper_no_systemd: 'This computer has no systemd user session, so the update helper cannot start by itself. The speaker works; for updates from its page, start “lithify serve” yourself, for example from your desktop’s autostart.',
       another: 'Set up another speaker', finish: 'Finish',
       closed_title: 'Setup is finished', closed_text: 'You can close this tab now.',
+      rm_title: 'Remove Lithify from this computer',
+      rm_lead: 'Lithify is set up on this computer. If you no longer need it, you can remove it here.',
+      rm_want: 'I want to remove Lithify from this computer', rm_button: 'Remove Lithify',
+      rm_checking: 'Checking what there is to remove…',
+      rm_dialog_title: 'Remove Lithify from this computer?', rm_dialog_lead: 'This goes:',
+      rm_dialog_later: 'Lithify’s own folder ({0}) is in use until this page is closed: the last step shows how to delete it.',
+      rm_speakers: 'Remove Lithify from the speakers too: {0}',
+      rm_speakers_note: 'Each speaker gets its stock software back and restarts (about a minute without sound).',
+      rm_confirm: 'Remove', rm_nothing: 'Nothing of Lithify is left here except its own program files.',
+      rp_helper: 'the helper that keeps your speakers updatable', rp_docker: 'the build caches in Docker: {0}',
+      rp_firewall: 'the Windows firewall rules “Lithify” (Windows asks for permission)',
+      rp_path: 'the lithify command’s folder in your PATH', rp_runonce: 'the installer’s step for after a restart',
+      rp_temp_installer: 'the installer’s copy in the temporary folder', rp_config: 'the configuration (speakers, the page’s PIN): {0}',
+      rp_cache: 'downloads and builds: {0}', rp_logs: 'the helper’s logs: {0}', rp_command: 'the lithify command: {0}',
+      remove_title: 'Removing Lithify', rm_running: 'Removing Lithify from this computer…',
+      rm_running_all: 'Removing Lithify from the speakers, then from this computer…',
+      rm_done: 'Lithify has been removed from this computer.', rm_done_all: 'Lithify has been removed from the speakers and from this computer.',
+      rm_last: 'One step is left: click Finish, then delete this folder. It held Lithify itself.',
+      rm_show: 'Show the folder', rm_or_cmd: 'Or, once this page is closed, run this command in a terminal:',
+      err_uninstall_failed: 'Lithify could not be removed completely',
+      fix_uninstall_failed: 'The log says what stopped it. Try again; a speaker has to be switched on to be removed.',
+      ann_removed: 'Lithify removed.', closed_removed_title: 'Lithify is removed',
+      closed_removed_text: 'Now delete Lithify’s own folder, as the page said. Then you can close this tab.',
+      closed_removed_all: 'Nothing of it is left on this computer. You can close this tab now.',
       gone_title: 'The setup assistant has stopped',
       gone_text: 'It no longer answers – its window on this computer was probably closed. Start Lithify again to continue.',
 
@@ -333,6 +357,30 @@
       helper_no_systemd: 'Ten komputer nie ma sesji użytkownika systemd, więc pomocnik aktualizacji nie uruchomi się sam. Głośnik działa; aby aktualizować go z jego strony, uruchamiaj „lithify serve” samodzielnie, np. z autostartu pulpitu.',
       another: 'Skonfiguruj kolejny głośnik', finish: 'Zakończ',
       closed_title: 'Instalacja zakończona', closed_text: 'Możesz już zamknąć tę kartę.',
+      rm_title: 'Usuń Lithify z tego komputera',
+      rm_lead: 'Lithify jest zainstalowany na tym komputerze. Jeśli go już nie potrzebujesz, możesz go tu usunąć.',
+      rm_want: 'Chcę usunąć Lithify z tego komputera', rm_button: 'Usuń Lithify',
+      rm_checking: 'Sprawdzanie, co jest do usunięcia…',
+      rm_dialog_title: 'Na pewno usunąć Lithify z tego komputera?', rm_dialog_lead: 'Zniknie:',
+      rm_dialog_later: 'Folder samego programu ({0}) jest w użyciu do zamknięcia tej strony: ostatni krok pokaże, jak go usunąć.',
+      rm_speakers: 'Usuń Lithify także z głośników: {0}',
+      rm_speakers_note: 'Każdy głośnik wróci do fabrycznego oprogramowania i uruchomi się ponownie (około minuty bez dźwięku).',
+      rm_confirm: 'Usuń', rm_nothing: 'Z Lithify zostały tu tylko pliki samego programu.',
+      rp_helper: 'pomocnik, dzięki któremu głośniki można aktualizować', rp_docker: 'pamięć podręczna budowania w Dockerze: {0}',
+      rp_firewall: 'reguły zapory Windows „Lithify” (Windows zapyta o zgodę)',
+      rp_path: 'folder polecenia lithify w zmiennej PATH', rp_runonce: 'krok instalatora zaplanowany po restarcie',
+      rp_temp_installer: 'kopia instalatora w folderze tymczasowym', rp_config: 'konfiguracja (głośniki, PIN strony): {0}',
+      rp_cache: 'pobrane i zbudowane paczki: {0}', rp_logs: 'logi pomocnika: {0}', rp_command: 'polecenie lithify: {0}',
+      remove_title: 'Usuwanie Lithify', rm_running: 'Usuwanie Lithify z tego komputera…',
+      rm_running_all: 'Usuwanie Lithify z głośników, a potem z tego komputera…',
+      rm_done: 'Lithify został usunięty z tego komputera.', rm_done_all: 'Lithify został usunięty z głośników i z tego komputera.',
+      rm_last: 'Został jeden krok: kliknij Zakończ, a potem usuń ten folder. Był w nim sam Lithify.',
+      rm_show: 'Pokaż folder', rm_or_cmd: 'Albo, gdy ta strona będzie zamknięta, uruchom w terminalu to polecenie:',
+      err_uninstall_failed: 'Nie udało się całkiem usunąć Lithify',
+      fix_uninstall_failed: 'Log mówi, co przeszkodziło. Spróbuj ponownie; głośnik musi być włączony, żeby dało się z niego usunąć Lithify.',
+      ann_removed: 'Lithify usunięty.', closed_removed_title: 'Lithify usunięty',
+      closed_removed_text: 'Teraz usuń folder samego Lithify, tak jak mówiła strona. Potem możesz zamknąć tę kartę.',
+      closed_removed_all: 'Nic z niego nie zostało na tym komputerze. Możesz już zamknąć tę kartę.',
       gone_title: 'Asystent instalacji nie działa',
       gone_text: 'Nie odpowiada – jego okno na tym komputerze zostało pewnie zamknięte. Uruchom Lithify ponownie, aby kontynuować.',
 
@@ -464,7 +512,8 @@
   // (a published bundle is downloaded in the build's place, and nothing is compiled)
   const phaseLabel = (p) => t(p === 'build' && st.software === 'download' ? 'ph_download' : `ph_${p}`);
   // Which step shows what went wrong in a task.
-  const TASK_STEP = { check: 'computer', 'start-docker': 'computer', discover: 'speaker', probe: 'speaker', install: 'install' };
+  const TASK_STEP = { check: 'computer', 'start-docker': 'computer', discover: 'speaker', probe: 'speaker', install: 'install',
+    'plan-removal': 'welcome', uninstall: 'remove' };
   let st = null; // the last state from the computer
   const drawn = { rev: -1, lang: '', step: '', error: '', phase: '', task: '', ask: '' };
   let offset = 0; // the computer's clock minus this browser's, in seconds
@@ -474,6 +523,9 @@
   let gone = false;
   let nameFor = ''; // the speaker whose name the field was filled with
   let lastHost = '';
+  let wantPlan = false; // the window that asks before removing opens once the plan is in
+  let lastSpeakers = false; // the speakers were to go too (for "Try again")
+  let cmdShown = ''; // the delete command shown on the removal step
   const inflight = new Set();
 
   const running = () => Boolean(st && st.task && !st.task.finished);
@@ -543,11 +595,17 @@
       drawn.lang = LANG;
       drawSteps();
       ({ welcome: drawWelcome, computer: drawComputer, speaker: drawSpeaker, install: drawInstall,
-        done: drawDone })[st.step]();
+        done: drawDone, remove: drawRemove })[st.step]();
+      drawRemovalEntry();
       drawError(force);
       tellChanges();
     }
     tick();
+    const task = st.task;
+    if (wantPlan && task && task.kind === 'plan-removal' && task.finished) {
+      wantPlan = false;
+      if (task.ok && st.removal) askRemoval();
+    }
   }
 
   // (Docker Desktop on Windows and macOS; on Linux the distribution's Docker. None, and a few
@@ -558,6 +616,81 @@
     setText($('w-time'), t(build ? 'w_time' : 'w_time_ready'));
     setText($('need-docker'), t(has(`n_2_${st.os}`) ? `n_2_${st.os}` : 'n_2'));
     setProp($('need-docker'), 'hidden', !build);
+  }
+
+  // On the welcome step, when Lithify is set up here: removing it, behind a box to tick first.
+  function drawRemovalEntry() {
+    const shown = st.step === 'welcome' && st.set_up;
+    setProp($('rm-entry'), 'hidden', !shown);
+    const planning = running() && st.task.kind === 'plan-removal';
+    setProp($('rm-checking'), 'hidden', !planning);
+    setProp($('btn-rm'), 'disabled', !$('rm-want').checked || running());
+  }
+
+  // The window that asks: what goes, and whether the speakers lose Lithify too.
+  function askRemoval() {
+    const r = st.removal;
+    const list = $('rm-parts');
+    list.replaceChildren(...r.parts.map((p) => el('li', { text: t(`rp_${p.key}`, p.detail) })));
+    if (!r.parts.length) list.append(el('li', { text: t('rm_nothing') }));
+    setText($('rm-later'), r.later.length ? t('rm_dialog_later', r.later.join(', ')) : '');
+    setProp($('rm-later'), 'hidden', !r.later.length);
+    const names = r.speakers.map((s) => (s.id === s.host ? s.host : `${s.id} (${s.host})`)).join(', ');
+    setText($('rm-speakers-label'), t('rm_speakers', names));
+    setProp($('rm-speakers-box'), 'hidden', !r.speakers.length);
+    $('rm-speakers').checked = false;
+    const dlg = $('rm-dialog');
+    const close = (go) => {
+      $('rm-go').removeEventListener('click', yes);
+      $('rm-cancel').removeEventListener('click', no);
+      dlg.removeEventListener('cancel', no);
+      if (dlg.open) dlg.close();
+      if (!go) {
+        $('rm-want').checked = false; // (asked again from the start next time)
+        drawRemovalEntry();
+        return;
+      }
+      lastSpeakers = r.speakers.length > 0 && $('rm-speakers').checked;
+      act('/api/uninstall', { speakers: lastSpeakers });
+    };
+    const yes = () => close(true);
+    const no = (e) => {
+      if (e) e.preventDefault();
+      close(false);
+    };
+    $('rm-go').addEventListener('click', yes);
+    $('rm-cancel').addEventListener('click', no);
+    dlg.addEventListener('cancel', no); // (Esc)
+    dlg.showModal();
+    $('rm-cancel').focus();
+  }
+
+  // Removing: its progress, and what is left to do by hand.
+  function drawRemove() {
+    const task = st.task && st.task.kind === 'uninstall' ? st.task : null;
+    const live = Boolean(task && !task.finished);
+    const ok = Boolean(task && task.finished && task.ok);
+    const status = $('remove-status');
+    const said = live ? t(lastSpeakers ? 'rm_running_all' : 'rm_running') : ok ? t(lastSpeakers ? 'rm_done_all' : 'rm_done') : '';
+    setText(status, said);
+    setClass(status, live ? 'msg spin' : 'msg ok');
+    setProp(status, 'hidden', !said);
+    const later = ok && st.removal ? st.removal.later : [];
+    setProp($('remove-last'), 'hidden', !later.length);
+    if (later.length) {
+      keyed($('remove-folders'), later, (f) => f, () => el('li', {}, el('code')), (n, f) => setText(n.firstChild, f));
+      if (cmdShown !== st.removal.delete) {
+        cmdShown = st.removal.delete;
+        $('remove-cmd').replaceChildren(cmdBlock(st.removal.delete));
+      }
+    }
+    setProp($('btn-rm-back'), 'hidden', live || ok);
+    setProp($('btn-rm-finish'), 'hidden', !ok);
+    if (task) {
+      const pre = $('remove-log');
+      const text = task.lines.join('\n');
+      if (pre.textContent !== text) pre.textContent = text;
+    }
   }
 
   function drawSteps() {
@@ -571,6 +704,7 @@
       setProp(li.querySelector('[data-t="step_completed"]'), 'hidden', i >= at);
     }
     for (const sec of document.querySelectorAll('section.step')) setProp(sec, 'hidden', sec.dataset.step !== st.step);
+    setProp($('stepper').parentElement, 'hidden', st.step === 'remove'); // (no step of the setup)
     if (drawn.step !== st.step) {
       const first = drawn.step === '';
       drawn.step = st.step;
@@ -899,6 +1033,8 @@
       discover: () => act('/api/discover'),
       probe: () => (lastHost ? act('/api/add-host', { host: lastHost }) : act('/api/discover')),
       install: () => act('/api/install', { host: c.host, name: c.spotify_name || $('spotify-name').value.trim() }),
+      'plan-removal': planRemoval,
+      uninstall: () => act('/api/uninstall', { speakers: lastSpeakers }),
     })[task.kind]();
   }
 
@@ -920,6 +1056,7 @@
     drawn.task = ended;
     if (first) return; // (it ended before this page was opened)
     if (task.kind === 'install') announce(task.ok ? t('ann_installed') : t('ann_failed', t(`err_${task.error_key || 'unknown'}`)));
+    else if (task.kind === 'uninstall') announce(task.ok ? t('ann_removed') : t('err_uninstall_failed'));
     else if ((task.kind === 'check' || task.kind === 'start-docker') && task.ok) announce(t('ann_checked'));
     else if (task.kind === 'discover' && task.ok) announce(t('ann_found', answered()));
     else if (task.kind === 'probe' && task.ok && st.speakers.length) { // (a typed address is listed first)
@@ -944,7 +1081,7 @@
   }
 
   function showEnd(titleKey, textKey) {
-    over = titleKey === 'closed_title' || textKey === 'e_token';
+    over = titleKey === 'closed_title' || titleKey === 'closed_removed_title' || textKey === 'e_token';
     clearTimeout(timer);
     for (const sec of document.querySelectorAll('section.step, #s-loading')) sec.hidden = true;
     $('stepper').parentElement.hidden = true;
@@ -1004,8 +1141,15 @@
     act('/api/cancel');
   }
   async function finish() {
+    const removed = st && st.step === 'remove';
+    const left = removed && st.removal && st.removal.later.length > 0; // (a folder to delete by hand)
     try { await api('/api/quit', {}); } catch (_) { /* gone already */ }
-    showEnd('closed_title', 'closed_text');
+    showEnd(removed ? 'closed_removed_title' : 'closed_title',
+      removed ? (left ? 'closed_removed_text' : 'closed_removed_all') : 'closed_text');
+  }
+  function planRemoval() {
+    wantPlan = true;
+    act('/api/plan-removal');
   }
   const ACTS = {
     start: () => act('/api/check-computer'),
@@ -1021,11 +1165,14 @@
     'copy-log': (b) => copy(st && st.task ? st.task.lines.join('\n') : '', 'copied_log', b),
     another: () => act('/api/discover'),
     finish,
+    'plan-removal': planRemoval,
+    'show-folder': () => act('/api/show-folder'),
   };
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
     if (b && !b.disabled && ACTS[b.dataset.act]) ACTS[b.dataset.act](b);
   });
+  $('rm-want').addEventListener('change', () => { if (st) drawRemovalEntry(); });
   $('manual-host').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();

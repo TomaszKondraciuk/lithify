@@ -156,7 +156,8 @@ You only build when no ready-made release can be downloaded.
 
 ```sh
 lithify rollback          # the previous version of Lithify
-lithify uninstall         # the speaker's stock software again
+lithify uninstall         # the speaker's stock software again (or Remove Lithify on its page)
+lithify uninstall --all   # Lithify off every speaker, then off this computer
 ```
 
-Removing Lithify from the computer too: [installation.md](installation.md#uninstalling).
+More: [installation.md](installation.md#uninstalling).

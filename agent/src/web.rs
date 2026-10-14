@@ -10,6 +10,7 @@ use std::collections::VecDeque;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
+use std::path::Path;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, OnceLock};
@@ -20,7 +21,7 @@ use crate::settings;
 use crate::{
     base_dir, BUILD, event, find_bytes as find, find_pid, holds_pcm, http_date, in_route, librespot_args, log,
     log_flush, mixer_of, official_spotify, opt_value, output_within, pcm_status_seen, proc_uptime_s, read_volume,
-    read_within, restart_librespot_now, root_run_with, shared, spawn_named, system_uptime, take_place, trial_start,
+    read_within, restart_librespot_now, root_run, root_run_with, shared, spawn_named, system_uptime, take_place, trial_start,
     unreachable_routes, utc_now, wifi_seen, write_state, Config, INSTALLED_FILE, LIBRESPOT_STATE_FILE, LOG_PATH,
     SPOTIFY_RESTART,
 };
@@ -585,6 +586,7 @@ fn post(req: &Request, cfg: &Config, host: &str, path: &str) -> Response {
         "/api/update/all" => start_update_all(cfg),
         "/api/update/install" => start_install(cfg),
         "/api/update/rollback" => start_rollback(),
+        "/api/uninstall" => start_uninstall(),
         _ => Response::error(404, "not found"),
     }
 }
@@ -2589,6 +2591,87 @@ fn start_rollback() -> Response {
     })
 }
 
+// ── removing Lithify ─────────────────────────────────────────────────────
+// rollback.sh stops this agent on its way, and with it any console session the agent holds:
+// so it runs in a session of its own, its output in a file the job reads, and it restarts the
+// speaker at its end.
+
+const UNINSTALL_SCRIPT: &str = "/tmp/lithify_uninstall.sh";
+const UNINSTALL_LOG: &str = "/tmp/lithify_uninstall.log";
+/// What rollback.sh prints right before it stops Lithify's programs: up to there it changes
+/// nothing that a failure leaves half-done, from there on the agent is gone in a moment.
+const UNINSTALL_STOPPING: &str = "stopping the programs of Lithify";
+
+/// rollback.sh as the removal runs it, for this install's folder. The agent writes it into a
+/// file of its own: the speaker's mksh cannot keep a here-document (its place for them is missing).
+fn uninstall_script(base: &str) -> String {
+    format!("LITHIFY_BASE={base}\n{}", lf(ROLLBACK_SH))
+}
+
+/// The root script that starts the removal apart from the console session (setsid), its output
+/// in a file this agent can read (umask 022).
+fn uninstall_launcher() -> String {
+    format!(
+        "umask 022\n: >{UNINSTALL_LOG}\n\
+         setsid mksh {UNINSTALL_SCRIPT} stock purge reboot </dev/null >>{UNINSTALL_LOG} 2>&1 &\n\
+         echo UNINSTALL_STARTED\n"
+    )
+}
+
+#[derive(Debug, PartialEq)]
+enum Removal {
+    Starting,
+    Stopped,
+    Underway,
+}
+
+/// How far the removal has come, from its output.
+fn removal_state(log: &str) -> Removal {
+    if log.lines().any(|l| l.starts_with("FAIL") || l.starts_with("usage:")) {
+        Removal::Stopped
+    } else if log.contains(UNINSTALL_STOPPING) || log.contains("STOCK_RESTORED") || log.contains("NOTHING_TO_REMOVE") {
+        Removal::Underway
+    } else {
+        Removal::Starting
+    }
+}
+
+/// Remove Lithify from the speaker (rollback.sh stock purge reboot). What keeps it from starting
+/// (no backup of the stock service list) shows on the page; once it is under way, this agent is
+/// stopped by it and the speaker restarts with its stock software.
+fn start_uninstall() -> Response {
+    let base = base_dir().display().to_string();
+    start_job("uninstall", move || {
+        settings::write_atomic(Path::new(UNINSTALL_SCRIPT), &uninstall_script(&base))
+            .map_err(|e| format!("cannot write {UNINSTALL_SCRIPT}: {e}"))?;
+        let out = root_run(&uninstall_launcher(), Duration::from_secs(15)).map_err(|e| format!("root console: {e}"))?;
+        if !out.contains("UNINSTALL_STARTED") {
+            return Err(format!("\nthe removal did not start: {}\n", out.trim()));
+        }
+        let started = Instant::now();
+        let mut shown = 0;
+        loop {
+            // (whole lines only: the script may be writing one)
+            let log = fs::read_to_string(UNINSTALL_LOG).unwrap_or_default();
+            let upto = log.rfind('\n').map_or(0, |i| i + 1);
+            if upto > shown {
+                job_progress(&log[shown..upto]);
+                shown = upto;
+            }
+            match removal_state(&log[..upto]) {
+                Removal::Stopped => return Err("\nthe removal stopped (see the lines above)\n".into()),
+                Removal::Underway => {
+                    return Ok(("\nLithify is being removed: the speaker restarts with its stock software\n".into(), false))
+                }
+                Removal::Starting if started.elapsed() > Duration::from_secs(60) => {
+                    return Err("\nthe removal did not get under way within a minute\n".into())
+                }
+                Removal::Starting => thread::sleep(Duration::from_millis(250)),
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2911,6 +2994,41 @@ mod tests {
         }
         assert_eq!(check_pin(&cfg, &req("192.0.2.10", "2468")).err().map(|r| r.code), Some(429));
         assert!(check_pin(&cfg, &req("192.0.2.11", "2468")).is_ok()); // another device still works
+    }
+
+    #[test]
+    fn the_removal_runs_rollback_sh_apart_from_the_console() {
+        assert_eq!(uninstall_script("/lsync/lithify"), format!("LITHIFY_BASE=/lsync/lithify\n{}", lf(ROLLBACK_SH)));
+        let s = uninstall_launcher();
+        assert_eq!(
+            s,
+            "umask 022\n: >/tmp/lithify_uninstall.log\n\
+             setsid mksh /tmp/lithify_uninstall.sh stock purge reboot </dev/null >>/tmp/lithify_uninstall.log 2>&1 &\n\
+             echo UNINSTALL_STARTED\n"
+        );
+        // (no here-document: the speaker's mksh cannot keep one)
+        assert!(!s.contains("<<"));
+        // What the job waits for is what rollback.sh prints before it stops the agent.
+        assert!(ROLLBACK_SH.contains(&format!("echo \"{UNINSTALL_STOPPING}\"")));
+    }
+
+    #[test]
+    fn the_removal_is_followed_by_its_output() {
+        assert_eq!(removal_state(""), Removal::Starting);
+        assert_eq!(removal_state("SHA256(/system/chrome/process.json)= 38e7\nthe stock Cast service list is back\n"), Removal::Starting);
+        assert_eq!(removal_state("the stock Cast service list is back\nstopping the programs of Lithify\n"), Removal::Underway);
+        assert_eq!(removal_state("FAIL no stock backup in /lsync/lithify/backup: nothing was changed\n"), Removal::Stopped);
+        assert_eq!(removal_state("usage: rollback.sh version | stock [purge [reboot]]\n"), Removal::Stopped);
+    }
+
+    #[test]
+    fn the_removal_needs_the_header_and_the_pin() {
+        let _one = serial();
+        let cfg = Config::default_for_tests("2468");
+        assert_eq!(route(&request("POST", "/api/uninstall", &[]), &cfg).code, 403);
+        let wrong = route(&request("POST", "/api/uninstall", &[("x-lithify", "1"), ("x-lithify-pin", "1357")]), &cfg);
+        assert_eq!(wrong.code, 401);
+        assert!(!job().running, "nothing may start without the PIN");
     }
 
     #[test]

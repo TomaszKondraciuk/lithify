@@ -168,8 +168,9 @@ computer for updates.
   speaker installs a release only if it is newer than what it runs, and keeps its settings.
   **Roll back** on the page returns to the previous version.
 - **After a firmware update,** the speaker may stop starting Lithify. Run the installer again.
-- **Remove:** `lithify uninstall`, run on your computer, returns the speaker to its stock software
-  and asks before it restarts the speaker. To remove Lithify from the computer as well, follow
+- **Remove:** **Remove Lithify** on the speaker's page, or `lithify uninstall` on your computer,
+  returns the speaker to its stock software and restarts it. `lithify uninstall --all` removes
+  Lithify from every speaker and then from the computer:
   [docs/installation.md](docs/installation.md#uninstalling).
 
 ## FAQ

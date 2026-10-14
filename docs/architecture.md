@@ -81,8 +81,22 @@ A bundle carries `settings.default` (config.toml's values) and, only when sent o
    librespot and the agent are restarted.
 
 From the web page the flow is the same, with `lithify serve` staging the files and the agent
-running `install.sh` (embedded in the agent at build time) through the local service console. The
-page never changes the service list, so it never needs a reboot.
+running `install.sh` (embedded in the agent at build time) through the local service console. An
+update from the page never changes the service list, so it never needs a reboot.
+
+## Removal
+
+`rollback.sh stock purge` puts the stock service list back from `backup/`, but only while the
+list still names Lithify: a newer list that a firmware update put in stays. The Cast process
+manager starts a stopped program again about two seconds later, so the script first moves
+`/lsync/lithify` aside, a folder the process manager cannot start anything from. Only then does
+it stop the agent (first, because it would hide the official Spotify again or put its routes
+back) and librespot. Next it undoes what they changed while they ran: the fail-fast routes,
+librespot's download tmpfs, a hidden official Spotify and the agent's files in `/tmp`. Last it
+deletes the folder. The reboot that follows clears the process manager's list in memory.
+*Remove Lithify* on the page runs the same script in a session of its own (`setsid`): the script
+stops the agent, and with it the agent's console session. The agent follows the script's output
+in `/tmp/lithify_uninstall.log` until then. The script restarts the speaker when it is done.
 
 ## The agent
 
