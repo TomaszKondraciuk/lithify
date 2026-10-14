@@ -157,6 +157,19 @@
       s_hide_official_spotify: 'Hide the official Spotify while Lithify works',
       h_hide_official_spotify: 'Spotify then lists only the Lithify device of this speaker. The official one comes back by itself when librespot stops working.',
       s_wifi_scancfg: 'Wi-Fi scan tuning (experts)',
+      rm_title: 'Remove Lithify', rm_button: 'Remove Lithify', rm_want: 'I want to remove Lithify',
+      rm_note: 'The speaker gets its stock software back: Lithify, its settings and the saved Spotify login are deleted, and the speaker restarts (about a minute without sound). The built-in Spotify, Google Cast and AirPlay work as before.',
+      rm_dialog_title: 'Remove Lithify from the speaker “{0}”?',
+      rm_dialog_note: 'Its settings and the saved Spotify login are deleted, and the speaker restarts. Installing Lithify again takes the Lithify app on your computer.',
+      rm_computer: 'Remove Lithify from my computer too',
+      rm_computer_note: 'Your computer removes it with one command: this page shows it next.',
+      rm_computer_step: 'Now remove Lithify from your computer: run this command there –',
+      cancel: 'Cancel', rm_confirm: 'Remove',
+      job_running_uninstall: 'removing Lithify…',
+      job_ok_uninstall: 'Lithify is being removed: the speaker restarts with its stock software (about a minute).',
+      job_failed_uninstall: 'Lithify could not be removed – the speaker keeps it (the lines below say why).',
+      rm_done: 'Lithify has been removed, and the speaker is restarting with its stock software. This page no longer works: you can close it.',
+      removed: 'removed',
     },
     pl: {
       pin: 'PIN', connecting: 'łączenie…', offline: 'brak połączenia', restarting: 'restart…',
@@ -305,6 +318,19 @@
       s_hide_official_spotify: 'Ukryj oficjalny Spotify, gdy działa Lithify',
       h_hide_official_spotify: 'W aplikacji Spotify zostanie tylko urządzenie Lithify tego głośnika. Oficjalne wróci samo, gdy librespot przestanie działać.',
       s_wifi_scancfg: 'Strojenie skanowania Wi-Fi (dla ekspertów)',
+      rm_title: 'Usuń Lithify', rm_button: 'Usuń Lithify', rm_want: 'Chcę usunąć Lithify',
+      rm_note: 'Głośnik wraca do fabrycznego oprogramowania: Lithify, jego ustawienia i zapisane logowanie do Spotify zostaną usunięte, a głośnik uruchomi się ponownie (około minuty bez dźwięku). Wbudowany Spotify, Google Cast i AirPlay działają jak wcześniej.',
+      rm_dialog_title: 'Na pewno usunąć Lithify z głośnika „{0}”?',
+      rm_dialog_note: 'Jego ustawienia i zapisane logowanie do Spotify zostaną usunięte, a głośnik uruchomi się ponownie. Ponowna instalacja Lithify wymaga aplikacji Lithify na komputerze.',
+      rm_computer: 'Usuń Lithify także z komputera',
+      rm_computer_note: 'Komputer usuwa go jednym poleceniem: ta strona pokaże je zaraz potem.',
+      rm_computer_step: 'Teraz usuń Lithify z komputera: uruchom na nim to polecenie –',
+      cancel: 'Anuluj', rm_confirm: 'Usuń',
+      job_running_uninstall: 'usuwanie Lithify…',
+      job_ok_uninstall: 'Lithify jest usuwany: głośnik uruchomi się ponownie z fabrycznym oprogramowaniem (około minuty).',
+      job_failed_uninstall: 'Nie udało się usunąć Lithify – głośnik nadal go ma (powód w liniach poniżej).',
+      rm_done: 'Lithify został usunięty, a głośnik uruchamia się ponownie z fabrycznym oprogramowaniem. Ta strona już nie działa: możesz ją zamknąć.',
+      removed: 'usunięto',
     },
   };
 
@@ -362,6 +388,8 @@
   let failures = 0; // status requests in a row without an answer
   let seq = 0; // numbers the status requests: an answer that comes late must not undo a newer one
   let restartingUntil = 0; // until then no answer means the agent restarts on purpose, not "offline"
+  let removing = false; // Lithify is being removed: once the agent stops answering, it is gone for good
+  let alsoComputer = false; // ... and the person asked for the command that removes it from the computer
   let pageBuild = null; // the agent build this page came from (the page is part of the agent)
   let shownJob = ''; // `finished` of the job result on screen…
   let shownAt = 0; // …and when it appeared
@@ -853,6 +881,9 @@
     const rb = $('btn-rollback');
     setProp(rb, 'hidden', !prev || samePrev(prev));
     setProp(rb, 'disabled', running || inflight.has('rollback'));
+    setProp(document.querySelector('[data-act="uninstall"]'), 'disabled',
+      !$('rm-want').checked || running || removing || inflight.has('uninstall'));
+    setProp($('rm-want'), 'disabled', removing);
     if (prev) {
       setText(rb, prev.librespot && prev.librespot !== st.versions.librespot
         ? t('rollback_lr', lrVersion(prev)) : t('rollback_to', when(prev.built)));
@@ -882,11 +913,13 @@
 
   function renderJob(job) {
     if (!job || !job.kind) return;
+    const box = job.kind === 'uninstall' ? 'out-rm' : 'out-upd';
     if (job.running) {
       jobSince = Date.now();
+      if (job.kind === 'uninstall') removing = true; // (also when another device started it)
       const doing = job.kind === 'update' && fromReleases() ? 'job_running_update_release' : `job_running_${job.kind}`;
-      showOnce('out-upd', `job ${job.kind} ${job.started}`, busy(t(doing)));
-      tail('out-upd', job.output);
+      showOnce(box, `job ${job.kind} ${job.started}`, busy(t(doing)), box === 'out-rm' ? computerStep() : null);
+      tail(box, job.output);
       return;
     }
     let pending = '';
@@ -898,12 +931,13 @@
       try { sessionStorage.removeItem('lithify-show-job'); } catch (_) { /* no storage */ }
       const key = job.ok ? (job.kind === 'update' && !job.installed ? 'job_nothing_update' : `job_ok_${job.kind}`)
         : `job_failed_${job.kind}`;
-      show('out-upd', msg(t(key), job.ok ? 'ok' : 'bad'));
+      show(box, msg(t(key), job.ok ? 'ok' : 'bad'), job.ok && box === 'out-rm' ? computerStep() : null);
       // The status carries a job's output only while it runs; the whole log comes once, here.
       const finished = job.finished;
-      api('/api/job').then((j) => { if (j && shownJob === finished) tail('out-upd', j.output); })
+      api('/api/job').then((j) => { if (j && shownJob === finished) tail(box, j.output); })
         .catch(() => { /* the message says what matters */ });
-      if (job.ok && job.installed) recheckAfter = st ? st.agent.pid : null;
+      if (job.kind === 'uninstall') removing = Boolean(job.ok);
+      else if (job.ok && job.installed) recheckAfter = st ? st.agent.pid : null;
       else if (job.ok) runCheck(false, true);
     }
   }
@@ -971,7 +1005,15 @@
     } catch (_) {
       if (mine !== seq) return; // a newer reading is under way
       failures += 1;
-      const restarting = watchingJob() || Date.now() < restartingUntil;
+      if (removing && failures >= 2) {
+        // The removal has stopped the agent: nothing answers on this page any more, so no more readings.
+        pill('conn', t('removed'), 'ok');
+        if ($('out-rm').dataset.shown !== 'removed') announce(t('rm_done'));
+        showOnce('out-rm', 'removed', msg(t('rm_done'), 'ok'), computerStep());
+        document.body.classList.add('stale', 'removed');
+        return;
+      }
+      const restarting = watchingJob() || Date.now() < restartingUntil || removing;
       if (restarting) {
         pill('conn', t('restarting'), 'warn');
       } else if (failures >= 2) {
@@ -1459,6 +1501,35 @@
     }
   }
 
+  // The removal's own question: a modal with what goes, and whether the computer's command is wanted
+  // too. Resolves to {computer} when the person chose to remove, null when not.
+  function askRemoval() {
+    const dlg = $('rm-dialog');
+    setText($('rm-dialog-title'), t('rm_dialog_title', $('sp-name').textContent));
+    $('rm-computer').checked = false;
+    return new Promise((done) => {
+      const close = (value) => {
+        $('rm-go').removeEventListener('click', go);
+        $('rm-cancel').removeEventListener('click', cancel);
+        dlg.removeEventListener('cancel', cancel);
+        if (dlg.open) dlg.close();
+        done(value);
+      };
+      const go = () => close({ computer: $('rm-computer').checked });
+      const cancel = () => close(null); // (also Esc)
+      $('rm-go').addEventListener('click', go);
+      $('rm-cancel').addEventListener('click', cancel);
+      dlg.addEventListener('cancel', cancel);
+      dlg.showModal();
+      $('rm-cancel').focus();
+    });
+  }
+
+  // What removes Lithify from the computer, when the person asked for it.
+  const computerStep = () => (alsoComputer
+    ? el('div', { class: 'msg warn' }, `${t('rm_computer_step')} `, el('code', { text: 'lithify uninstall --computer' }))
+    : null);
+
   const ACTIONS = {
     'test-librespot': async () => {
       show('out-lr', busy(t('testing')));
@@ -1510,6 +1581,23 @@
     rollback: async () => {
       const prev = st && st.prev_versions;
       if (prev && confirm(t('confirm_rollback', prevLabel(prev)))) await startJob('/api/update/rollback');
+    },
+    uninstall: async () => {
+      const choice = await askRemoval();
+      if (!choice) {
+        $('rm-want').checked = false; // (asked again from the start next time)
+        return;
+      }
+      alsoComputer = choice.computer;
+      show('out-rm', busy(t('job_starting')), computerStep());
+      try {
+        await api('/api/uninstall', 'POST');
+        jobSince = Date.now();
+        removing = true;
+        refresh();
+      } catch (e) {
+        show('out-rm', failed(e));
+      }
     },
     'restart-agent': async () => {
       if (!confirm(t('confirm_restart_agent'))) return;
@@ -1565,6 +1653,7 @@
     if (btn && btn.type !== 'submit') run(btn.dataset.act, btn);
   });
 
+  $('rm-want').addEventListener('change', renderUpdates);
   $('set-form').addEventListener('input', updateDirty);
   $('set-form').addEventListener('change', updateDirty);
   $('set-form').addEventListener('submit', (ev) => {

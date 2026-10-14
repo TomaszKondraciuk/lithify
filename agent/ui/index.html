@@ -125,7 +125,28 @@
     </div>
     <div class="out" id="out-logs"></div>
   </section>
+
+  <section class="card wide" id="card-rm">
+    <h2><span data-t="rm_title">Remove Lithify</span></h2>
+    <p class="hint" data-t="rm_note">The speaker gets its stock software back.</p>
+    <div class="actions">
+      <label class="row check"><input type="checkbox" id="rm-want"> <span data-t="rm_want">I want to remove Lithify</span></label>
+      <button type="button" data-act="uninstall" class="danger" data-t="rm_button" disabled>Remove Lithify</button>
+    </div>
+    <div class="out" id="out-rm" aria-live="polite"></div>
+  </section>
 </main>
+
+<dialog id="rm-dialog" aria-labelledby="rm-dialog-title">
+  <h2 id="rm-dialog-title"></h2>
+  <p data-t="rm_dialog_note">Its settings and the saved Spotify login are deleted, and the speaker restarts.</p>
+  <label class="row check"><input type="checkbox" id="rm-computer"> <span data-t="rm_computer">Remove Lithify from my computer too</span></label>
+  <p class="hint" data-t="rm_computer_note">This page then shows the command for your computer.</p>
+  <div class="actions">
+    <button type="button" id="rm-cancel" data-t="cancel">Cancel</button>
+    <button type="button" id="rm-go" class="danger" data-t="rm_confirm">Remove</button>
+  </div>
+</dialog>
 
 <footer data-t="footer">Lithify runs on the speaker; new versions are built on your computer.</footer>
 <script src="/app.js"></script>
