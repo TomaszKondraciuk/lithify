@@ -108,6 +108,8 @@ speaker cannot download from this computer".
 | Configuration | `%APPDATA%\lithify` | `~/.config/lithify` |
 | Downloaded and built bundles | `%LOCALAPPDATA%\lithify\cache` | `~/.cache/lithify` |
 | The helper that keeps speakers updatable | a scheduled task | a launchd agent (macOS), a systemd user service (Linux) |
+| The firewall | the rules "Lithify" | macOS: what you allowed for Python. Linux: the ufw or firewalld rule, if the installer added it |
+| Build caches, only when Lithify is built on the computer | Docker volumes `lithify-cargo` and `lithify-target-*`, images `lithify-builder` | the same |
 
 Docker and git are installed only when Lithify is built on the computer. Neither is copied to the
 speaker.
@@ -170,20 +172,37 @@ release never replaces a build made on the computer after that release. Details:
 
 ## Uninstalling
 
-1. **The speaker.** On the computer, run:
+**Everything at once.** On the computer, run:
 
-   ```sh
-   lithify uninstall
-   ```
+```sh
+lithify uninstall --all
+```
 
-   This restores the speaker's stock list of programs, deletes Lithify's folder on the speaker
-   (`/lsync/lithify`), and asks before it restarts the speaker. With several speakers, add
-   `--speaker <id>` and repeat for each.
-2. **The helper.** Run `lithify serve --uninstall-service`.
-3. **The files.** Delete the folders listed in
-   [What changes on the computer](#what-changes-on-the-computer). On Windows, also remove the
-   firewall rules named "Lithify" (*Windows Defender Firewall → Advanced settings → Inbound
-   Rules*).
+It lists what it removes and asks once. Then every speaker in `config.toml` gets its stock list
+of programs back, loses Lithify's folder (`/lsync/lithify`, with its settings and the saved
+Spotify login) and restarts, about a minute without sound. After that the computer loses the
+helper, the Windows firewall rules "Lithify", the configuration, the downloads and builds, the
+build caches in Docker and the `lithify` command. Lithify's own program files are in use until
+the command ends. Its last line is the command that deletes them.
+
+**Only a speaker.** At the bottom of the speaker's page, tick *I want to remove Lithify*, click
+*Remove Lithify* and confirm in the window that opens. Tick *Remove Lithify from my computer too*
+there, and the page also shows the command that removes Lithify from the computer. On the
+computer, `lithify uninstall` does the same as the page. With several speakers, add
+`--speaker <id>`. For a speaker that `config.toml` does not name, add `--host <address>`. The
+built-in Spotify, Google Cast and AirPlay work as before.
+
+**Only the computer.** Run `lithify uninstall --computer`, for example after removing Lithify from
+the speakers on their pages. Without a terminal: open the wizard (run the installer again, or
+`lithify wizard`), tick *I want to remove Lithify from this computer* on its first page and click
+*Remove Lithify*. The window that opens lists what goes and can remove Lithify from the speakers
+too. At the end the wizard shows Lithify's own folder, which you delete after clicking *Finish*.
+
+`lithify uninstall` restarts the speaker without asking when nobody can answer. With
+`--no-reboot` the restart waits. Lithify is gone at once and the built-in Spotify is back, and the
+restart then finishes the removal. If a firmware update replaced the speaker's list of programs,
+the removal keeps that newer list.
 
 Python, and Docker and git if the installer added them, stay installed. Remove them as you would
-any other program if you no longer need them.
+any other program if you no longer need them. The Spotify login is deleted from the speaker. To
+revoke it at Spotify as well, sign out of all devices in your Spotify account settings.

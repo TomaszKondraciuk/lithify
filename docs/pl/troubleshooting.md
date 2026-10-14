@@ -163,7 +163,8 @@ Budujesz tylko wtedy, gdy nie da się pobrać gotowego wydania.
 
 ```sh
 lithify rollback          # poprzednia wersja Lithify
-lithify uninstall         # z powrotem fabryczne oprogramowanie głośnika
+lithify uninstall         # z powrotem fabryczne oprogramowanie głośnika (albo Usuń Lithify na jego stronie)
+lithify uninstall --all   # Lithify znika ze wszystkich głośników, a potem z tego komputera
 ```
 
-Usuwanie Lithify także z komputera: [installation.md](installation.md#usuwanie).
+Więcej: [installation.md](installation.md#usuwanie).

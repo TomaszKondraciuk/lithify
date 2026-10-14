@@ -110,6 +110,8 @@ komunikatem, że głośnik nie może pobierać z tego komputera.
 | Konfiguracja | `%APPDATA%\lithify` | `~/.config/lithify` |
 | Pobrane i zbudowane paczki | `%LOCALAPPDATA%\lithify\cache` | `~/.cache/lithify` |
 | Pomocnik, dzięki któremu głośniki można aktualizować | zadanie w Harmonogramie zadań | agent launchd (macOS), usługa użytkownika systemd (Linux) |
+| Zapora | reguły „Lithify” | macOS: zgoda dla Pythona, jeśli jej udzielono. Linux: reguła ufw lub firewalld, jeśli dodał ją instalator |
+| Pamięć podręczna budowania, tylko gdy Lithify jest budowany na komputerze | woluminy Dockera `lithify-cargo` i `lithify-target-*`, obrazy `lithify-builder` | to samo |
 
 Docker i git instalują się tylko wtedy, gdy Lithify jest budowany na komputerze. Żaden z nich nie
 trafia na głośnik.
@@ -173,20 +175,39 @@ nie zastąpi kompilacji zrobionej na komputerze po tym wydaniu. Szczegóły (po 
 
 ## Usuwanie
 
-1. **Głośnik.** Na komputerze uruchom:
+**Wszystko naraz.** Na komputerze uruchom:
 
-   ```sh
-   lithify uninstall
-   ```
+```sh
+lithify uninstall --all
+```
 
-   To przywraca fabryczną listę programów głośnika, usuwa katalog Lithify z głośnika
-   (`/lsync/lithify`) i pyta, zanim uruchomi głośnik ponownie. Przy kilku głośnikach dodaj
-   `--speaker <id>` i powtórz dla każdego.
-2. **Pomocnik.** Uruchom `lithify serve --uninstall-service`.
-3. **Pliki.** Usuń katalogi wymienione w
-   [Co się zmienia na komputerze](#co-się-zmienia-na-komputerze). Na Windowsie usuń też reguły
-   zapory o nazwie „Lithify” (*Zapora Windows Defender → Ustawienia zaawansowane → Reguły
-   przychodzące*).
+Polecenie pokazuje, co usunie, i pyta raz. Potem każdy głośnik z `config.toml` dostaje z powrotem
+fabryczną listę programów, traci katalog Lithify (`/lsync/lithify` z ustawieniami i zapisanym
+logowaniem do Spotify) i uruchamia się ponownie, około minuty bez dźwięku. Następnie z komputera
+znikają pomocnik, reguły zapory Windows „Lithify”, konfiguracja, pobrane i zbudowane paczki,
+pamięć podręczna budowania w Dockerze i polecenie `lithify`. Pliki samego programu są w użyciu do
+końca polecenia. Jego ostatnia linia to polecenie, które je usuwa.
+
+**Tylko głośnik.** Na dole strony głośnika zaznacz *Chcę usunąć Lithify*, kliknij *Usuń Lithify*
+i potwierdź w oknie, które się otworzy. Jeśli zaznaczysz tam *Usuń Lithify także z komputera*,
+strona pokaże też polecenie, które usuwa Lithify z komputera. Na komputerze `lithify uninstall`
+robi to samo co strona. Przy kilku głośnikach dodaj `--speaker <id>`. Dla głośnika, którego nie
+ma w `config.toml`, dodaj `--host <adres>`. Wbudowany Spotify, Google Cast i AirPlay działają jak
+wcześniej.
+
+**Tylko komputer.** Uruchom `lithify uninstall --computer`, na przykład gdy Lithify zniknął już z
+głośników przez ich strony. Bez terminala: otwórz kreator (uruchom instalator ponownie albo
+`lithify wizard`), na jego pierwszej stronie zaznacz *Chcę usunąć Lithify z tego komputera* i
+kliknij *Usuń Lithify*. Okno, które się otworzy, pokazuje, co zniknie, i może usunąć Lithify także
+z głośników. Na końcu kreator pokazuje folder samego Lithify, który usuwasz po kliknięciu
+*Zakończ*.
+
+`lithify uninstall` uruchamia głośnik ponownie bez pytania, gdy nie ma kto odpowiedzieć. Z
+`--no-reboot` restart czeka na później. Lithify znika od razu, wbudowany Spotify wraca, a restart
+kończy usuwanie. Jeśli aktualizacja firmware podmieniła listę programów głośnika, usuwanie
+zostawia tę nowszą listę.
 
 Python, a także Docker i git, jeśli dodał je instalator, zostają zainstalowane. Jeśli nie są Ci
-już potrzebne, usuń je jak każdy inny program.
+już potrzebne, usuń je jak każdy inny program. Logowanie do Spotify znika z głośnika. Aby
+unieważnić je także po stronie Spotify, wyloguj się ze wszystkich urządzeń w ustawieniach konta
+Spotify.

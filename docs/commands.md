@@ -16,7 +16,7 @@ The installer puts the `lithify` command on the computer. With several speakers,
 | `lithify ui` | the address of the speaker's web page |
 | `lithify logs` | the agent's and librespot's logs |
 | `lithify rollback [version\|stock]` | the previous version of Lithify; `stock` starts only the speaker's own programs again but keeps Lithify's files |
-| `lithify uninstall` | remove Lithify and restore the stock speaker |
+| `lithify uninstall [--all \| --computer]` | remove Lithify from the speaker and restart it; `--computer`: from this computer only; `--all`: from every speaker, then from this computer |
 
 ## Speakers on the network
 
