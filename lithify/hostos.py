@@ -503,6 +503,24 @@ def firewall_ready() -> bool:
     return not WINDOWS or (firewall_rule_present() and not python_blocks())
 
 
+def _elevated(steps: list[str]) -> bool:
+    """Run PowerShell `steps` as an administrator: Windows asks for consent (UAC). Hidden, and
+    waited for, so the result can be checked; False when it could not be started at all."""
+    script = base64.b64encode("; ".join(steps).encode("utf-16-le")).decode("ascii")
+    ps = ("Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "
+          f"'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand','{script}'")
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, stdin=subprocess.DEVNULL,
+                       timeout=300, **no_window())
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return True
+
+
+def _delete_rule_step() -> str:
+    return "& netsh 'advfirewall' 'firewall' 'delete' 'rule' " + _ps_quote(f"name={FIREWALL_RULE}") + " | Out-Null"
+
+
 def ensure_firewall_rule() -> bool:
     """On Windows, add the rule and lift the blocks of Lithify's Python, in one step that Windows asks
     an administrator's consent for. True when the speaker can reach this computer, as far as the
@@ -515,19 +533,31 @@ def ensure_firewall_rule() -> bool:
     steps = []
     if not present:
         # (the whole rule again: for the ports, and for each of Lithify's Pythons)
-        steps.append("& netsh 'advfirewall' 'firewall' 'delete' 'rule' " + _ps_quote(f"name={FIREWALL_RULE}")
-                     + " | Out-Null")
+        steps.append(_delete_rule_step())
         steps.extend("& netsh " + " ".join(_ps_quote(a) for a in firewall_rule_command(program=program))
                      for program in ("", *lithify_pythons()))
     if blocks:
         steps.append("Remove-NetFirewallRule -Name " + ",".join(_ps_quote(n) for n in blocks))
-    script = base64.b64encode("; ".join(steps).encode("utf-16-le")).decode("ascii")
-    # Elevated (Windows asks), hidden, and waited for, so the result can be checked.
-    ps = ("Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "
-          f"'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand','{script}'")
+    return _elevated(steps) and firewall_ready()
+
+
+def firewall_rules_exist() -> bool:
+    """Is there a Windows firewall rule named "Lithify" (the ports', or one of a Python's)?"""
+    if not WINDOWS:
+        return False
+    ps = f"@(Get-NetFirewallRule -DisplayName {_ps_quote(FIREWALL_RULE)} -ErrorAction SilentlyContinue).Count"
     try:
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, stdin=subprocess.DEVNULL,
-                       timeout=300, **no_window())
+        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], capture_output=True,
+                           text=True, errors="replace", stdin=subprocess.DEVNULL, timeout=30, **no_window())
     except (OSError, subprocess.SubprocessError):
         return False
-    return firewall_ready()
+    count = r.stdout.strip()
+    return count.isdigit() and int(count) > 0
+
+
+def remove_firewall_rules() -> bool:
+    """Delete the "Lithify" rules, in a step Windows asks an administrator's consent for; True when
+    none is left."""
+    if not WINDOWS:
+        return True
+    return _elevated([_delete_rule_step()]) and not firewall_rules_exist()

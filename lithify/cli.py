@@ -18,7 +18,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from . import __version__, bundle, companion, config, discovery, hostos, platforms, service, updates
+from . import __version__, bundle, companion, config, discovery, hostos, platforms, removal, service, updates
 from .device import ROOT, Device, http_get
 
 USER_CONFIG = hostos.config_dir() / "config.toml"
@@ -31,14 +31,21 @@ def say(msg: str) -> None:
 def ask(question: str, default: str = "") -> str:
     if not sys.stdin.isatty():
         return default
-    a = input(f"{question}{f' [{default}]' if default else ''}: ").strip()
+    try:
+        a = input(f"{question}{f' [{default}]' if default else ''}: ").strip()
+    except EOFError:  # (Windows counts NUL as a terminal, with nothing to read in it)
+        print()
+        return default
     return a or default
 
 
-def yes(question: str, assume: bool | None) -> bool:
+def yes(question: str, assume: bool | None, default: bool = False) -> bool:
+    """`assume`, when the command line decided; otherwise the answer (Enter, or no terminal to ask
+    in: `default`)."""
     if assume is not None:
         return assume
-    return ask(f"{question} (y/N)").lower() in ("y", "yes", "t", "tak")
+    answer = ask(f"{question} ({'Y/n' if default else 'y/N'})").lower()
+    return default if not answer else answer in ("y", "yes", "t", "tak")
 
 
 # ── commands ────────────────────────────────────────────────────────────────
@@ -386,12 +393,92 @@ def cmd_rollback(a, cfg) -> int:
     return 0
 
 
-def cmd_uninstall(a, cfg) -> int:
-    d = Device(cfg.speaker(a.speaker))
-    print(d.rollback("stock", purge=True))
-    if yes("reboot the speaker now to finish?", a.reboot):
+def uninstall_speaker(s: config.Speaker, reboot: bool | None) -> bool:
+    """Lithify off one speaker, then the restart that finishes it (asked first, unless `reboot`
+    decided; yes when nobody can answer). False when none of Lithify was on the speaker."""
+    say(f"removing Lithify from {s.id} ({s.host})")
+    d = Device(s)
+    out = d.rollback("stock", purge=True)
+    said = "\n".join(line for line in out.splitlines() if line.strip() not in ("STOCK_RESTORED", "NOTHING_TO_REMOVE"))
+    if said.strip():
+        print(said)
+    if "NOTHING_TO_REMOVE" in out:
+        say(f"none of Lithify is on {s.id}: nothing to remove")
+        return False
+    if yes("restart the speaker now to finish? (about a minute without sound)", reboot, default=True):
         d.reboot(wait_for_librespot=False)
-        say("done - the speaker runs its stock software again")
+        say(f"done - {s.id} runs its stock software again")
+    else:
+        print(f"{s.id} plays with its own Spotify again; restart it to finish (`lithify reboot`, or switch it off "
+              "and on)")
+    return True
+
+
+def show_plan(plan: removal.Plan) -> None:
+    """What goes, and before the question, what stays."""
+    for part in plan.parts:
+        print(f"  - {part.what}")
+    for path in plan.later:
+        print(f"  - Lithify's program files in {path} (you delete them at the end: the command is shown then)")
+    for n in plan.notes:
+        print(f"note: {n}")
+
+
+def finish_computer(plan: removal.Plan, cfg) -> int:
+    """Lithify off this computer, as `plan` says, and what is left to do."""
+    problems = removal.remove(plan.parts)
+    for p in problems:
+        print(f"warning: {p}", file=sys.stderr)
+    # (one in Lithify's own folder went with it: this one is somewhere else)
+    if cfg and cfg.path and cfg.path.exists():
+        print(f"note: {cfg.path} stays: Lithify's configuration outside its own folder. Delete it yourself.")
+    if plan.later:
+        say("one step is left, once this command has finished: delete Lithify's program files with")
+        print(f"  {removal.delete_command(plan.later)}")
+    elif not problems:
+        say("Lithify is off this computer")
+    print("Python, Docker and git stay installed: remove them as any other program if nothing else needs them.")
+    return 1 if problems else 0
+
+
+def cmd_uninstall(a, cfg) -> int:
+    if (a.speaker or a.host) and (a.all or a.computer):
+        print("--speaker and --host pick one speaker: --all and --computer do without them")
+        return 2
+    if a.speaker and a.host:
+        print("--speaker or --host, not both")
+        return 2
+    if a.computer or a.all:
+        speakers = cfg.speakers if a.all else []
+        plan = removal.plan()
+        if not (speakers or plan.parts or plan.later):
+            say("none of Lithify is left on this computer")
+            for n in plan.notes:
+                print(f"note: {n}")
+            return 0
+        names = ", ".join(f"{s.id} ({s.host})" for s in speakers)
+        say(f"this removes Lithify from {names + ' and from ' if names else ''}this computer:")
+        show_plan(plan)
+        if not yes("go ahead?", True if a.yes else None):
+            print("nothing was removed")
+            return 1
+        for s in speakers:
+            try:
+                uninstall_speaker(s, True if a.reboot is None else a.reboot)
+            except (RuntimeError, OSError) as e:
+                raise RuntimeError(f"{s.id} ({s.host}): {e}\nNothing on this computer was removed. Check that the "
+                                   "speaker is on and run this again; if it is gone for good (reset, sold), "
+                                   "`lithify uninstall --computer` removes Lithify from this computer only.") from None
+        return finish_computer(plan, cfg)
+    if a.host and not config.valid_host(a.host):
+        raise config.ConfigError(f"{a.host!r} is not an IP address or host name")
+    if not a.host and not cfg.speakers:
+        print("config.toml names no speaker: add --host <the speaker's address> (`lithify discover` finds it); "
+              "`lithify uninstall --computer` removes Lithify from this computer")
+        return 1
+    s = config.Speaker("speaker", a.host, "speaker") if a.host else cfg.speaker(a.speaker)
+    uninstall_speaker(s, a.reboot)
+    print("Lithify stays on this computer: `lithify uninstall --computer` removes it from here too.")
     return 0
 
 
@@ -549,10 +636,17 @@ def main(argv: list[str] | None = None) -> int:
     sp = add("rollback", cmd_rollback, "previous version, or the stock service list")
     sp.add_argument("mode", nargs="?", default="version", choices=["version", "stock"])
     sp.add_argument("--purge", action="store_true")
-    sp = add("uninstall", cmd_uninstall, "remove Lithify and restore the stock speaker")
+    sp = add("uninstall", cmd_uninstall, "remove Lithify from a speaker (and from this computer)")
+    sp.add_argument("--host", help="the speaker's address, when config.toml does not name it")
+    w = sp.add_mutually_exclusive_group()
+    w.add_argument("--all", action="store_true", help="from every speaker in config.toml, then from this computer")
+    w.add_argument("--computer", action="store_true", help="from this computer only (the speakers stay as they are)")
+    sp.add_argument("-y", "--yes", action="store_true", help="remove from this computer without asking first")
     g = sp.add_mutually_exclusive_group()
-    g.add_argument("--reboot", dest="reboot", action="store_true", default=None)
-    g.add_argument("--no-reboot", dest="reboot", action="store_false")
+    g.add_argument("--reboot", dest="reboot", action="store_true", default=None,
+                   help="restart the speaker without asking (the default when nobody can answer)")
+    g.add_argument("--no-reboot", dest="reboot", action="store_false",
+                   help="leave the restart for later (Lithify is gone, its official Spotify is back)")
     add("reboot", cmd_reboot, "reboot the speaker and wait for it")
     add("check-updates", cmd_check_updates, "newer upstream versions than versions.toml?", speaker=False)
     sp = add("serve", cmd_serve, "companion for the speaker web page (builds, serves updates)", speaker=False)

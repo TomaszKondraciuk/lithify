@@ -252,6 +252,20 @@ def uninstall() -> None:
         _systemd_uninstall()
 
 
+def installed() -> str:
+    """How the companion starts with this computer, in words ("" when it does not)."""
+    if hostos.WINDOWS:
+        try:
+            r = _run(["schtasks", "/Query", "/TN", TASK], "schtasks /Query", check=False, timeout=30)
+        except RuntimeError:  # (no schtasks: no task either)
+            return ""
+        found = r.returncode == 0
+        return f"the scheduled task \"{TASK}\"" if found else ""
+    if hostos.MACOS:
+        return f"the launchd agent {LAUNCHD_LABEL}" if _launchd_path().exists() else ""
+    return f"the systemd user service {UNIT}" if _systemd_path().exists() else ""
+
+
 # ── the supervisor ──────────────────────────────────────────────────────────
 
 def _open_log(path: Path):
