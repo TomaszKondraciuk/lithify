@@ -100,13 +100,15 @@ in `/tmp/lithify_uninstall.log` until then. The script restarts the speaker when
 
 ## The agent
 
-`lithify-agent` is a dependency-free Rust program (about 700 KB):
+`lithify-agent` is a dependency-free Rust program (about 1 MB):
 
-- `exec-file` restores default signal handling (the process manager starts children with
-  `SIGCHLD` ignored, which breaks librespot's event hook), pins librespot's initial volume to the
-  current hardware level, points alsa-lib at its configuration, prepares librespot's download
-  tmpfs (mounted through the service console when it is missing, resized when an older version made
-  it, emptied), closes the descriptors the process manager left open and `exec`s librespot;
+- `exec-file` waits for the network and for Spotify to answer (a minute at most each: without
+  them librespot ends at once), restores default signal handling (the process manager starts
+  children with `SIGCHLD` ignored, which breaks librespot's event hook), pins librespot's initial
+  volume to the current hardware level, points alsa-lib at its configuration, prepares
+  librespot's download tmpfs (mounted through the service console when it is missing, resized when
+  an older version made it, emptied), closes the descriptors the process manager left open and
+  `exec`s librespot;
 - `onevent` is librespot's event hook: before librespot opens the audio device it pauses the
   Libre source that still holds it (LUCI protocol, TCP 7777);
 - `run` is the watchdog plus the web page. It talks LUCI to follow the speaker's sources and uses
@@ -129,14 +131,19 @@ How it stays light and recovers on its own:
   themselves – the agent's own (PIN, port) stay. Files are replaced atomically and flushed.
 - **librespot that keeps exiting** is slowed down (the wrapper waits longer the more often it
   started lately), its last good settings come back, and when a new version was installed just
-  before, the agent rolls back to the previous one.
+  before, the agent rolls back to the previous one. Exits while the speaker has no network, or
+  cannot reach Spotify (`could not initialize spirc: Service unavailable`: the internet is down,
+  the LAN is up), do not count.
 - **librespot health**: a librespot that stops answering on its zeroconf port for three minutes
   (and is not playing) is restarted, then again after 10, 30 and 60 minutes at most. One whose
-  connection to Spotify closed (`Connection to server closed.`, a dealer that stopped answering)
-  and that has not signed in again within 20 s is restarted too, never while it plays and at
-  most every 10 minutes: idle, librespot would otherwise stay on the dead session until the next
-  command from an app fails. A loss reported within 10 s of a new login is the replaced
-  session's and does not count.
+  connection to Spotify was lost and that has not signed in again within 20 s is restarted too,
+  never while it plays and at most every 10 minutes: idle, librespot would otherwise stay on the
+  dead session until the next command from an app fails. Lost are the access point (it closed
+  the connection, or stopped answering the keep-alive, which librespot logs only with Lithify's
+  patch `log-keepalive-loss`) and the dealer, the connection the apps' commands come through,
+  until it is back (spirc announcing the device on it again). A loss reported within 10 s of a new
+  login is the replaced session's and does not count. While Spotify does not answer (the
+  internet is down), the restart waits: a new librespot could not sign in.
 - **Nothing it starts can hang it**: tools (amixer, iwconfig, df) get a few seconds and are then
   killed, and a call that is stuck in a driver is not made again until it returns (the page gets
   the last answer meanwhile); the volume is read straight from the kernel (one ioctl), amixer is
