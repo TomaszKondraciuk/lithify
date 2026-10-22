@@ -7,11 +7,13 @@ repo = "https://github.com/librespot-org/librespot.git"
 # `commit` is the one this Lithify was built and tested with; "update everything" on the web page
 # (`lithify build --latest`) moves on to the branch's newest commit.
 ref = "dev"
-commit = "e023adbbf017ae1fc10d01531dbe50c409786f2d"
+commit = "99b6088bf3ea028f90192676ac1a337fa4b2ed12"
 # Our own changes (build/patches/<name>.patch), applied on top; one librespot has taken in by
 # then is skipped by itself.
-#   autoplay-refills  autoplay keeps going after its first batch of tracks (librespot PR #1782)
-local_patches = ["autoplay-refills"]
+#   autoplay-refills    autoplay keeps going after its first batch of tracks (librespot PR #1782)
+#   log-keepalive-loss  a session that stops answering its keep-alive says so in the log (the
+#                       agent restarts librespot then; librespot ends that session silently)
+local_patches = ["autoplay-refills", "log-keepalive-loss"]
 features = ["rustls-tls-webpki-roots", "alsa-backend", "with-libmdns"]
 # Refresh every dependency to its newest semver-compatible release at build time.
 update_deps = true

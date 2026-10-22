@@ -1,0 +1,25 @@
+From: Lithify <lithify@localhost>
+Subject: [PATCH] core: say when the access point stops answering the keep-alive
+
+librespot shuts the session down when a Ping or PongAck does not come in time, and returns
+the error from the dispatch task, whose result nothing logs: the session ends without a word
+while spirc, idle, stays parked on it. Log it where it is noticed, so that a watchdog can tell
+(Lithify's agent restarts librespot then).
+
+---
+diff --git a/core/src/session.rs b/core/src/session.rs
+index 333678f..4c7d4fc 100644
+--- a/core/src/session.rs
++++ b/core/src/session.rs
+@@ -926,6 +926,11 @@ where
+         if let Poll::Ready(()) = this.timeout.as_mut().poll(cx) {
+             match this.keep_alive_state {
+                 ExpectingPing | ExpectingPongAck => {
++                    // Said here: the task's error is not logged where it ends.
++                    error!(
++                        "session lost connection to server ({:?})",
++                        this.keep_alive_state
++                    );
+                     if !session.is_invalid() {
+                         session.shutdown();
+                     }
