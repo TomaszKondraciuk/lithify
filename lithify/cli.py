@@ -355,13 +355,16 @@ def cmd_status(a, cfg) -> int:
     print(f"Speaker {s.id} ({s.host})  {info.get('manufacturer') or ''} {info.get('model') or ''}".rstrip())
     print(f"  firmware   Libre {info.get('firmware')} ({info.get('firmware_date')}), Cast {info.get('cast')}, "
           f"AirPlay {info.get('airplay')}")
-    print(f"  spotify    official {info.get('official_spotify')} | librespot {lr.get('version')} "
+    print(f"  spotify    official {info.get('official_spotify') or 'not running'} | librespot {lr.get('version')} "
           f"\"{lr.get('name')}\" {login}".rstrip())
     if agent:
         for k, v in agent.get("versions", {}).items():
             print(f"  bundle     {k}={v}")
         net = agent.get("network", {})
-        print(f"  wifi       {net.get('ssid')} {net.get('freq_mhz')} MHz {net.get('signal_dbm')} dBm")
+        # (The Wi-Fi driver names no frequency on 5 GHz, and a new agent has not read the signal yet.)
+        freq = f" {net['freq_mhz']} MHz" if net.get("freq_mhz") else ""
+        signal = f" {net['signal_dbm']} dBm" if net.get("signal_dbm") is not None else ""
+        print(f"  wifi       {net.get('ssid')}{freq}{signal}")
         print(f"  fail-fast  {', '.join(net.get('fastfail_routes', [])) or 'none'}")
         print(f"  web page   http://{s.host}:{s.agent['ui_port']}/")
     else:
