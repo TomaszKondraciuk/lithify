@@ -30,7 +30,7 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::{Path, PathBuf};
 use std::process::{self, Child, Command, Stdio};
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -78,7 +78,7 @@ pidof spotifyhifi\n";
 // nothing on the speaker starts it again.
 const SPOTIFY_STOP: &str = "killall spotifyhifi\n\
 sleep 2\n\
-killall -9 spotifyhifi\n\
+killall -9 spotifyhifi 2>/dev/null\n\
 sleep 1\n\
 pidof spotifyhifi\n";
 
@@ -1433,6 +1433,9 @@ fn cmd_exec(args: &[String]) -> ! {
     }
     let mut all: Vec<String> = args[1..].iter().cloned().chain(file_args).collect();
     if Path::new(prog).file_name().is_some_and(|n| n == "librespot") {
+        if !uses_proxy(&all) {
+            wait_for_spotify();
+        }
         let named = tmp_dir_of(&all).map(str::to_string);
         match named.as_deref() {
             Some(settings::LIBRESPOT_TMP) => {
@@ -1682,6 +1685,25 @@ fn wait_for_network() {
         }
     }
     log("still no network after 60 s: librespot starts anyway");
+}
+
+/// The LAN can be up while the internet is not (the provider's line, its DNS): a librespot
+/// started then cannot sign in and ends at once ("could not initialize spirc"), to be started
+/// again and again. So wait for Spotify to answer as well, at most a minute, then start anyway.
+fn wait_for_spotify() {
+    if spotify_answers() {
+        return;
+    }
+    log("Spotify does not answer (is the internet down?): librespot waits for it (at most 60 s)");
+    let until = Instant::now() + Duration::from_secs(60);
+    while Instant::now() < until {
+        thread::sleep(Duration::from_secs(5));
+        if spotify_answers() {
+            log("Spotify answers: librespot starts");
+            return;
+        }
+    }
+    log("Spotify still does not answer after 60 s: librespot starts anyway");
 }
 
 /// Does /proc/net/route have a usable default route (the network is up)?
@@ -2583,7 +2605,7 @@ fn cmd_run() -> i32 {
     let mut zeroconf = ZeroconfWatch::new();
     let mut crashes = CrashWatch::new();
     let mut shells = ShellWatch::new();
-    let mut link = LinkWatch { last_restart: None };
+    let mut link = LinkWatch { last_restart: None, told_waiting: None };
     let mut last_beat = Instant::now();
     loop {
         spin.tick(&cfg, tck);
@@ -2594,11 +2616,12 @@ fn cmd_run() -> i32 {
         crashes.tick();
         if last_beat.elapsed() >= Duration::from_secs(1800) {
             last_beat = Instant::now();
+            let pid = |p: Option<i32>| p.map_or("-".to_string(), |p| p.to_string());
             log(&format!(
-                "heartbeat: spotifyhifi={:?} max_cpu_30min={:.0}% librespot={:?}",
-                spin.pid,
+                "heartbeat: spotifyhifi={} max_cpu_30min={:.0}% librespot={}",
+                pid(spin.pid),
                 spin.max_rate * 100.0,
-                find_pid("librespot"),
+                pid(find_pid("librespot")),
             ));
             spin.max_rate = 0.0;
         }
@@ -2692,42 +2715,80 @@ fn has_children(pid: i32) -> bool {
 // ── librespot health ─────────────────────────────────────────────────────
 
 // librespot can be left on a dead session: when the connection to Spotify's access point
-// closes, it shuts the session down, but spirc checks for that only when something else wakes
-// it. Idle, it stays parked; the next command from an app then fails (no audio key) and starts
-// it over with a blank state. A dropped dealer websocket can likewise leave it on stale
-// channels for hours. The logcat reader notes such a loss, a new login clears it; a loss left
-// standing for a while gets librespot restarted (never while it plays: then it notices itself).
+// closes, or stops answering its keep-alive, it shuts the session down, but spirc checks for that
+// only when something else wakes it. Idle, it stays parked; the next command from an app then
+// fails (no audio key) and starts it over with a blank state. The dealer (the websocket the apps'
+// commands come through) connects again by itself when its connection drops, and spirc then
+// announces the device anew; but a dealer that cannot get its address on the way (the internet
+// is down at that moment) gives up for good, and spirc waits on stale channels for hours. The
+// logcat reader notes such a loss, a new login (or, for the dealer, the new announcement) clears
+// it; a loss left standing for a while gets librespot restarted (never while it plays: then it
+// notices itself), once Spotify answers again.
+
+/// librespot's two connections to Spotify.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Link {
+    /// The access point: the login, audio keys.
+    Session,
+    /// The dealer: the Spotify apps' commands.
+    Dealer,
+}
 
 /// What a line of librespot's log says about its connection to Spotify.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum LinkNote {
-    Lost,
+    Lost(Link),
+    /// Signed in again: both connections are new.
     Back,
+    /// spirc announced the device on a dealer that connected again.
+    DealerBack,
 }
 
 /// librespot's own lines only ("[time LEVEL librespot_x::y] message"), not the agent's.
 fn link_note(line: &str) -> Option<LinkNote> {
-    let (_, rest) = line.split_once(" librespot_")?;
+    let (head, rest) = line.split_once(" librespot_")?;
     let (module, msg) = rest.split_once("] ")?;
-    if module == "core::session" {
-        if msg.starts_with("Authenticated as") {
-            return Some(LinkNote::Back);
+    let note = match module {
+        "core::session" if msg.starts_with("Authenticated as") => LinkNote::Back,
+        // Closed by the access point, or an error sending to it (it logs the bare I/O error).
+        "core::session"
+            if msg.starts_with("Connection to server closed.") || (head.ends_with("ERROR") && msg.contains("(os error ")) =>
+        {
+            LinkNote::Lost(Link::Session)
         }
-        if msg.starts_with("Connection to server closed.") {
-            return Some(LinkNote::Lost);
+        // librespot shuts the session down without a word when the keep-alive goes unanswered;
+        // the build's local patch log-keepalive-loss has it say so.
+        _ if msg.contains("session lost connection to server") => LinkNote::Lost(Link::Session),
+        // (The dealer of a session that a new login replaces says the same when it closes.)
+        "core::dealer" if msg.starts_with("Websocket peer does not respond.") || msg.starts_with("Websocket connection failed") => {
+            LinkNote::Lost(Link::Dealer)
         }
-    }
-    // A dealer whose websocket stops answering can leave spirc on stale channels. One that fails
-    // to connect tries again by itself, and the dealer of a session that a new login replaces
-    // says the same when it closes: that line is no loss.
-    let lost = msg.contains("session lost connection to server") || msg.starts_with("Websocket peer does not respond.");
-    lost.then_some(LinkNote::Lost)
+        "connect::spirc" if msg.starts_with("active device is <") || msg.starts_with("trying to take over control automatically") => {
+            LinkNote::DealerBack
+        }
+        _ => return None,
+    };
+    Some(note)
 }
 
-/// Since when librespot has been without its connection (the first loss since its last login).
-static LINK_LOST: Mutex<Option<Instant>> = Mutex::new(None);
+/// Since when each connection has been lost (the first loss since it was last back).
+struct LinkLost {
+    session: Option<Instant>,
+    dealer: Option<Instant>,
+}
 
-fn link_lost() -> MutexGuard<'static, Option<Instant>> {
+impl LinkLost {
+    const NONE: LinkLost = LinkLost { session: None, dealer: None };
+
+    /// Since when librespot has been without one of its connections.
+    fn since(&self) -> Option<Instant> {
+        self.session.into_iter().chain(self.dealer).min()
+    }
+}
+
+static LINK_LOST: Mutex<LinkLost> = Mutex::new(LinkLost::NONE);
+
+fn link_lost() -> MutexGuard<'static, LinkLost> {
     LINK_LOST.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -2744,23 +2805,55 @@ fn loss_counts(since_login: Option<Duration>) -> bool {
 }
 
 fn note_link(line: &str) {
+    if offline_exit(line) {
+        *offline_exit_seen() = Some(Instant::now());
+        return;
+    }
     let mut login = LINK_LOGIN.lock().unwrap_or_else(|e| e.into_inner());
+    let mut lost = link_lost();
     match link_note(line) {
-        Some(LinkNote::Lost) if loss_counts(login.map(|t| t.elapsed())) => {
-            link_lost().get_or_insert_with(Instant::now);
+        Some(LinkNote::Lost(link)) if loss_counts(login.map(|t| t.elapsed())) => {
+            let since = match link {
+                Link::Session => &mut lost.session,
+                Link::Dealer => &mut lost.dealer,
+            };
+            since.get_or_insert_with(Instant::now);
         }
-        Some(LinkNote::Lost) | None => {}
+        Some(LinkNote::Lost(_)) | None => {}
         Some(LinkNote::Back) => {
-            *link_lost() = None;
+            *lost = LinkLost::NONE;
             *login = Some(Instant::now());
         }
+        Some(LinkNote::DealerBack) => lost.dealer = None,
     }
+}
+
+/// librespot ended at its start because it could not reach Spotify (the internet is down, while
+/// the LAN may be up): "could not initialize spirc: Service unavailable { client error (Connect) }".
+fn offline_exit(line: &str) -> bool {
+    line.split_once(" librespot] ").is_some_and(|(_, msg)| {
+        msg.starts_with("could not initialize spirc:") && (msg.contains("Service unavailable") || msg.contains("Deadline expired"))
+    })
+}
+
+/// When librespot last ended so.
+static OFFLINE_EXIT: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// Starts this soon after such an end are no sign of librespot failing (between two of them the
+/// exec wrapper waits up to a minute for Spotify, after slowing the restart down by up to 30 s).
+const OFFLINE_QUIET: Duration = Duration::from_secs(180);
+
+fn offline_exit_seen() -> MutexGuard<'static, Option<Instant>> {
+    OFFLINE_EXIT.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// librespot gets this long to reconnect by itself.
 const LINK_GRACE: Duration = Duration::from_secs(20);
-/// At most one restart this often: while the network itself is down, restarts do not help.
+/// At most one restart this often: a loss that a restart does not cure must not have librespot
+/// restarted over and over.
 const LINK_RESTART_GAP: Duration = Duration::from_secs(600);
+/// While Spotify does not answer, it is asked again after this long.
+const LINK_PROBE_AGE: Duration = Duration::from_secs(10);
 
 /// Restart librespot for a loss noted `lost_for` ago, the last such restart `since_last` ago?
 /// `playing` is asked last (it looks at librespot's files).
@@ -2770,20 +2863,90 @@ fn link_restart_due(lost_for: Duration, since_last: Option<Duration>, playing: i
 
 struct LinkWatch {
     last_restart: Option<Instant>,
+    /// The loss (when it began) already told to be waiting for Spotify: said once per loss.
+    told_waiting: Option<Instant>,
 }
 
 impl LinkWatch {
     fn tick(&mut self) {
-        let Some(lost) = *link_lost() else { return };
+        let Some(lost) = link_lost().since() else { return };
         let Some(pid) = find_pid("librespot") else { return };
         if !link_restart_due(lost.elapsed(), self.last_restart.map(|t| t.elapsed()), || holds_pcm_now(pid)) {
             return;
         }
+        // While the internet is down, a new librespot cannot sign in: it exits at once, again
+        // and again. (Through a proxy, Spotify cannot be asked directly.)
+        if !uses_proxy(&proc_args(pid)) {
+            match spotify_answered_within(LINK_PROBE_AGE) {
+                None => return, // asked: the answer comes by one of the next ticks
+                Some(false) => {
+                    if self.told_waiting != Some(lost) {
+                        self.told_waiting = Some(lost);
+                        event("librespot lost its connection to Spotify, and Spotify does not answer (is the internet down?): restarting it once Spotify answers");
+                    }
+                    return;
+                }
+                Some(true) => {}
+            }
+        }
         event("librespot lost its connection to Spotify and did not reconnect: restarting it");
         self.last_restart = Some(Instant::now());
-        *link_lost() = None;
+        *link_lost() = LinkLost::NONE;
         restart_librespot_now(); // a stop of the agent's own: no sign of a crash loop
     }
+}
+
+// ── does Spotify answer ──────────────────────────────────────────────────
+
+/// Where librespot asks first for Spotify's servers, and its fallback server.
+const SPOTIFY_HOSTS: [&str; 2] = ["apresolve.spotify.com", "ap.spotify.com"];
+
+/// Does Spotify answer: does its name resolve, and does an address of it take a connection?
+/// Without an answer from the DNS the fallback is not asked (it would not resolve either).
+fn spotify_answers() -> bool {
+    for (i, host) in SPOTIFY_HOSTS.iter().enumerate() {
+        let Ok(addrs) = (*host, 443).to_socket_addrs() else {
+            if i == 0 {
+                return false;
+            }
+            continue;
+        };
+        if addrs.filter(SocketAddr::is_ipv4).take(2).any(|a| TcpStream::connect_timeout(&a, Duration::from_secs(3)).is_ok()) {
+            return true;
+        }
+    }
+    false
+}
+
+/// librespot set to reach Spotify through a proxy (`--proxy URL`, `-x URL`, `--proxy=URL`).
+fn uses_proxy(args: &[String]) -> bool {
+    args.iter().any(|a| a == "--proxy" || a == "-x" || a.starts_with("--proxy="))
+}
+
+/// The last answer to spotify_answers() (when it came, what it was), and whether a question is out.
+static SPOTIFY_ANSWER: Mutex<Option<(Instant, bool)>> = Mutex::new(None);
+static SPOTIFY_ASKING: AtomicBool = AtomicBool::new(false);
+
+/// Spotify's answer when it came at most `max_age` ago; else None, and the question goes out on
+/// a thread of its own (with the internet down, the DNS alone takes seconds): the watchdog does
+/// not wait for it.
+fn spotify_answered_within(max_age: Duration) -> Option<bool> {
+    if let Some((at, ok)) = *SPOTIFY_ANSWER.lock().unwrap_or_else(|e| e.into_inner()) {
+        if at.elapsed() <= max_age {
+            return Some(ok);
+        }
+    }
+    if !SPOTIFY_ASKING.swap(true, Ordering::AcqRel) {
+        let asked = thread::Builder::new().name("spotify-probe".into()).stack_size(128 * 1024).spawn(|| {
+            let ok = spotify_answers();
+            *SPOTIFY_ANSWER.lock().unwrap_or_else(|e| e.into_inner()) = Some((Instant::now(), ok));
+            SPOTIFY_ASKING.store(false, Ordering::Release);
+        });
+        if asked.is_err() {
+            SPOTIFY_ASKING.store(false, Ordering::Release);
+        }
+    }
+    None
 }
 
 /// A librespot that runs but no longer answers on its zeroconf port cannot be found by Spotify
@@ -2928,6 +3091,11 @@ impl CrashWatch {
         // Without a network librespot cannot run: that is not librespot failing (and must never
         // roll back a good version after a router restart).
         if !has_default_route(&fs::read_to_string("/proc/net/route").unwrap_or_default()) {
+            return;
+        }
+        // Nor while it cannot reach Spotify with the LAN up (the internet is down): it ends at its
+        // start then, again and again, until the internet is back.
+        if offline_exit_seen().is_some_and(|t| t.elapsed() < OFFLINE_QUIET) {
             return;
         }
         let newest = librespot_starts().into_iter().fold(0.0, f64::max);
@@ -3486,29 +3654,81 @@ mod tests {
 
     #[test]
     fn librespot_link_lines_are_told_apart() {
+        use {Link::*, LinkNote::*};
         let note = |rest: &str| link_note(&librespot_line(rest));
-        assert_eq!(note("ERROR librespot_core::session] Connection to server closed."), Some(LinkNote::Lost));
-        assert_eq!(note("ERROR librespot_connect::spirc] session lost connection to server"), Some(LinkNote::Lost));
-        assert_eq!(note("WARN  librespot_core::dealer] Websocket peer does not respond."), Some(LinkNote::Lost));
-        // a dealer that could not connect tries again by itself (and the replaced session's says so)
-        assert_eq!(note("WARN  librespot_core::dealer] Websocket connection failed: IO error: peer closed connection without sending TLS close_notify"), None);
-        assert_eq!(note("INFO  librespot_core::session] Authenticated as 'user' !"), Some(LinkNote::Back));
+        assert_eq!(note("ERROR librespot_core::session] Connection to server closed."), Some(Lost(Session)));
+        assert_eq!(note("WARN  librespot_core::session] Connection to server closed."), Some(Lost(Session)));
+        assert_eq!(note("ERROR librespot_core::session] Broken pipe (os error 32)"), Some(Lost(Session)));
+        assert_eq!(note("ERROR librespot_core::session] session lost connection to server (ExpectingPing)"), Some(Lost(Session)));
+        assert_eq!(note("ERROR librespot_connect::spirc] session lost connection to server"), Some(Lost(Session)));
+        assert_eq!(note("WARN  librespot_core::dealer] Websocket peer does not respond."), Some(Lost(Dealer)));
+        assert_eq!(note("WARN  librespot_core::dealer] Websocket connection failed: IO error: peer closed connection without sending TLS close_notify"), Some(Lost(Dealer)));
+        assert_eq!(note("INFO  librespot_core::session] Authenticated as 'user' !"), Some(Back));
+        // spirc announcing the device again: the dealer is back (2026-10-15 12:48:41, on the speaker)
+        assert_eq!(note("INFO  librespot_connect::spirc] active device is <> with session <83fead03cc55a439c2f6f2846c7a052a>"), Some(DealerBack));
+        assert_eq!(note("INFO  librespot_connect::spirc] trying to take over control automatically, session_id: 9e76"), Some(DealerBack));
         assert_eq!(note("INFO  librespot_playback::player] Loading <Song> with Spotify URI <spotify:track:x>"), None);
         assert_eq!(note("INFO  librespot_core::session] Connection to server closing soon"), None);
+        assert_eq!(note("WARN  librespot_core::session] Received unexpected Ping from server"), None);
+        // a dealer trying again while it cannot connect: the loss was noted already
+        assert_eq!(note("ERROR librespot_core::dealer] Error while connecting: Unknown error { failed to lookup address information: Try again }"), None);
         // the agent's own lines never count, whatever they say
         let own = "10-07 15:36:14.000 I/lithify-agent( 3061): 2026-10-07 13:36:14Z lithify-agent[99] \
-                   Connection to server closed. Websocket connection failed, Authenticated as x";
+                   Connection to server closed. Websocket connection failed, Authenticated as x, active device is <>";
         assert_eq!(link_note(own), None);
+    }
+
+    #[test]
+    fn librespot_losses_last_until_the_link_is_back() {
+        let _serial = serial(); // LINK_LOST, LINK_LOGIN
+        *LINK_LOGIN.lock().unwrap() = None;
+        *link_lost() = LinkLost::NONE;
         // a loss counts from the first line, until librespot signs in again
         note_link(&librespot_line("ERROR librespot_core::session] Connection to server closed."));
-        let first = link_lost().unwrap();
+        let first = link_lost().since().unwrap();
         note_link(&librespot_line("WARN  librespot_core::dealer] Websocket peer does not respond."));
-        assert_eq!(*link_lost(), Some(first));
+        assert_eq!(link_lost().since(), Some(first));
+        // spirc announcing the device again brings the dealer back, not the access point
+        note_link(&librespot_line("INFO  librespot_connect::spirc] active device is <> with session <x>"));
+        assert!(link_lost().dealer.is_none());
+        assert_eq!(link_lost().since(), Some(first));
         note_link(&librespot_line("INFO  librespot_core::session] Authenticated as 'user' !"));
-        assert!(link_lost().is_none());
+        assert!(link_lost().since().is_none());
         // right after a login, a loss is the replaced session's: not noted
+        note_link(&librespot_line("WARN  librespot_core::dealer] Websocket connection failed: IO error: Connection reset by peer (os error 104)"));
+        assert!(link_lost().since().is_none());
+        // a dealer blip it recovers from by itself leaves nothing standing
+        *LINK_LOGIN.lock().unwrap() = None;
         note_link(&librespot_line("WARN  librespot_core::dealer] Websocket peer does not respond."));
-        assert!(link_lost().is_none());
+        assert!(link_lost().dealer.is_some());
+        note_link(&librespot_line("INFO  librespot_connect::spirc] trying to take over control automatically, session_id: x"));
+        assert!(link_lost().since().is_none());
+        *link_lost() = LinkLost::NONE;
+    }
+
+    #[test]
+    fn a_start_without_internet_is_told_from_a_crash() {
+        let _serial = serial(); // OFFLINE_EXIT
+        // 2026-10-19 02:25, on the speaker: the provider's line was down, the LAN up
+        let offline = librespot_line("ERROR librespot] could not initialize spirc: Service unavailable { client error (Connect) }");
+        assert!(offline_exit(&offline));
+        assert!(offline_exit(&librespot_line("ERROR librespot] could not initialize spirc: Deadline expired before operation could complete { x }")));
+        // a refused login is no network trouble; nor the agent's own line
+        assert!(!offline_exit(&librespot_line("ERROR librespot] could not initialize spirc: Permission denied { Login failed with reason: Bad credentials }")));
+        assert!(!offline_exit("10-19 04:25:17.253 I/lithify-agent( 504): 2026-10-19 02:25:17Z lithify-agent[504] could not initialize spirc: Service unavailable"));
+        *offline_exit_seen() = None;
+        note_link(&offline);
+        assert!(offline_exit_seen().is_some_and(|t| t.elapsed() < OFFLINE_QUIET));
+        *offline_exit_seen() = None;
+    }
+
+    #[test]
+    fn a_proxy_in_librespots_options_is_seen() {
+        let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(uses_proxy(&args(&["--name", "x", "--proxy", "http://p:3128"])));
+        assert!(uses_proxy(&args(&["-x", "http://p:3128"])));
+        assert!(uses_proxy(&args(&["--proxy=http://p:3128"])));
+        assert!(!uses_proxy(&args(&["--name", "proxy", "--ap-port", "443"])));
     }
 
     #[test]

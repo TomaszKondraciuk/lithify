@@ -1706,6 +1706,11 @@ static RING_SIZE: AtomicUsize = AtomicUsize::new(0);
 
 /// Keep one line of librespot's or the agent's output (from the agent's logcat reader).
 pub(crate) fn remember(line: String) {
+    if line.contains(" librespot_core::session] Authenticated as ") {
+        if let Some((start, end)) = account_span(&line) {
+            *ACCOUNT.lock().unwrap_or_else(|e| e.into_inner()) = Some(line[start..end].to_string());
+        }
+    }
     let mut ring = ring();
     let mut size = RING_SIZE.load(Ordering::Relaxed) + line.len();
     ring.push_back(line);
@@ -1794,30 +1799,81 @@ fn logs(req: &Request) -> Response {
 /// system log, and librespot names the account it signed in with. The page shows logs to the
 /// whole network without a PIN, so those are cut off first.
 fn redact(text: &str) -> String {
-    text.lines().map(redact_line).collect::<Vec<_>>().join("\n")
+    let names = account_names(text);
+    text.lines().map(|l| redact_with(l, &names)).collect::<Vec<_>>().join("\n")
 }
 
 fn redact_line(l: &str) -> String {
-    if let Some(i) = l.to_ascii_lowercase().find("blob") {
-        return format!("{}blob [hidden]", &l[..i]);
+    redact_with(l, &account_names(l))
+}
+
+/// librespot names the account elsewhere too (a collection's address, a user's playlist), and
+/// the official client in "USERNAME = name": those names are hidden wherever they appear.
+fn redact_with(l: &str, names: &[String]) -> String {
+    let mut out = match l.to_ascii_lowercase().find("blob") {
+        Some(i) => format!("{}blob [hidden]", &l[..i]),
+        None => mask_account(l).unwrap_or_else(|| l.to_string()),
+    };
+    if let Some(m) = mask_username(&out) {
+        out = m;
     }
-    mask_account(l).unwrap_or_else(|| l.to_string())
+    for name in names {
+        if out.contains(name.as_str()) {
+            out = out.replace(name.as_str(), &masked(name));
+        }
+    }
+    out
+}
+
+/// The account librespot last signed in with (learned from its log by `remember`).
+static ACCOUNT: Mutex<Option<String>> = Mutex::new(None);
+
+/// The names to hide in `text`: that account, and any that `text` signs in with itself. Names of
+/// a few characters stay (hiding them would cut up ordinary words).
+fn account_names(text: &str) -> Vec<String> {
+    let mut names: Vec<String> = ACCOUNT.lock().unwrap_or_else(|e| e.into_inner()).iter().cloned().collect();
+    for l in text.lines() {
+        if let Some((start, end)) = account_span(l) {
+            let name = &l[start..end];
+            if !names.iter().any(|n| n == name) {
+                names.push(name.to_string());
+            }
+        }
+    }
+    names.retain(|n| n.chars().count() >= 4);
+    names
+}
+
+/// Where the name in "Authenticated as 'name' !" (librespot; quoted or not) is in `l`.
+fn account_span(l: &str) -> Option<(usize, usize)> {
+    const KEY: &str = "Authenticated as ";
+    let at = l.find(KEY)? + KEY.len();
+    let quote = l[at..].chars().next().filter(|c| matches!(c, '\'' | '"'));
+    let start = at + quote.map_or(0, char::len_utf8);
+    let len = match quote {
+        Some(q) => l[start..].find(q),
+        None => l[start..].find(char::is_whitespace),
+    };
+    Some((start, len.map_or(l.len(), |n| start + n)))
 }
 
 /// "Authenticated as 'name' !" (librespot) with only the first two characters of the name.
 fn mask_account(l: &str) -> Option<String> {
-    const KEY: &str = "Authenticated as ";
-    let at = l.find(KEY)? + KEY.len();
-    let rest = &l[at..];
-    let quote = rest.chars().next().filter(|c| matches!(c, '\'' | '"'));
-    let name_on = &rest[quote.map_or(0, char::len_utf8)..];
-    let end = match quote {
-        Some(q) => name_on.find(q).unwrap_or(name_on.len()),
-        None => name_on.find(char::is_whitespace).unwrap_or(name_on.len()),
-    };
-    let kept: String = name_on[..end].chars().take(2).collect();
-    let q = quote.map(String::from).unwrap_or_default();
-    Some(format!("{}{q}{kept}***{}", &l[..at], &name_on[end..]))
+    let (start, end) = account_span(l)?;
+    Some(format!("{}{}{}", &l[..start], masked(&l[start..end]), &l[end..]))
+}
+
+/// The official client's "USERNAME = name" with only the first two characters of the name.
+fn mask_username(l: &str) -> Option<String> {
+    const KEY: &str = "USERNAME = ";
+    let start = l.find(KEY)? + KEY.len();
+    let end = l[start..].find(char::is_whitespace).map_or(l.len(), |n| start + n);
+    Some(format!("{}{}{}", &l[..start], masked(&l[start..end]), &l[end..]))
+}
+
+/// A name's first two characters, the rest hidden.
+fn masked(name: &str) -> String {
+    format!("{}***", name.chars().take(2).collect::<String>())
 }
 
 // ── tests ────────────────────────────────────────────────────────────────
@@ -1945,6 +2001,25 @@ struct LogStats {
     /// from the logcat time).
     loaded_at: Option<u32>,
     login_at: Option<u32>,
+    /// The dealer's warnings since its connection dropped: when the first came, how many.
+    dealer_drop: Option<(u32, u32)>,
+}
+
+/// A dealer whose connection dropped connects again by itself, and spirc announces the device
+/// anew this soon after: the drop was then no trouble.
+const DEALER_BACK_MS: u32 = 5000;
+
+/// The dealer saying its connection dropped (and its close failing with it).
+fn dealer_drop(line: &str) -> bool {
+    line.contains("librespot_core::dealer] Websocket connection failed")
+        || line.contains("librespot_core::dealer] Websocket peer does not respond")
+        || line.contains("librespot_core::dealer] Error while closing websocket")
+}
+
+/// spirc announcing the device on a dealer that connected (again).
+fn dealer_back(line: &str) -> bool {
+    line.contains("librespot_connect::spirc] active device is <")
+        || line.contains("librespot_connect::spirc] trying to take over control automatically")
 }
 
 /// The dealer of a session that a new login replaced says it lost its websocket this soon after.
@@ -1984,14 +2059,29 @@ impl LogStats {
         if line.contains("librespot_playback::player] ") && line.ends_with(" loaded") {
             self.loaded_at = logcat_ms(line);
         }
-        if !(warn || error) {
-            return;
-        }
-        let underrun = line.contains("Broken pipe") || line.contains("underrun");
         let within = |since: Option<u32>, ms: u32| match (since, logcat_ms(line)) {
             (Some(at), Some(now)) => now >= at && now - at <= ms,
             _ => false,
         };
+        if dealer_back(line) {
+            if let Some((_, n)) = self.dealer_drop.take().filter(|(at, _)| within(Some(*at), DEALER_BACK_MS)) {
+                self.warnings -= n;
+                self.expected += n;
+                let mut left = n;
+                for i in (0..self.recent.len()).rev() {
+                    if left > 0 && dealer_drop(&self.recent[i]) {
+                        self.recent.remove(i);
+                        left -= 1;
+                    }
+                }
+            }
+            return;
+        }
+        if !(warn || error) {
+            return;
+        }
+        // (The dealer's "Broken pipe" is no audio running dry.)
+        let underrun = line.contains("librespot_playback::audio_backend") && (line.contains("Broken pipe") || line.contains("underrun"));
         let old_dealer = line.contains("librespot_core::dealer] Websocket connection failed");
         if warn
             && (expected_warning(line)
@@ -2003,6 +2093,12 @@ impl LogStats {
         }
         if warn {
             self.warnings += 1;
+            if dealer_drop(line) {
+                self.dealer_drop = match self.dealer_drop {
+                    Some((at, n)) => Some((at, n + 1)),
+                    None => logcat_ms(line).map(|at| (at, 1)),
+                };
+            }
         } else {
             self.errors += 1;
         }
@@ -2779,8 +2875,47 @@ mod tests {
                         10-07 13:21:10.867 E/SPOTIFY ( 1612): Łazienka STORE THE BLOB SECRETvalue3\n\
                         10-07 13:21:11.871 E/SPOTIFY ( 1612): ---SPOTIFY PLAYBACKEVENT = PlaybackStopped");
         assert!(!t.contains("SECRET"));
+        assert!(t.starts_with("10-07 13:21:10.002 E/SPOTIFY ( 1612): USERNAME = 12*** :::: blob [hidden]"), "{t}");
         assert_eq!(t.lines().count(), 4);
         assert!(t.ends_with("PlaybackStopped"));
+    }
+
+    #[test]
+    fn logs_hide_the_account_wherever_it_appears() {
+        let _one = crate::tests::serial(); // ACCOUNT
+        // 2026-10-18, on the speaker: librespot names the account in a collection's address
+        let collection = "10-18 19:39:34.768 I/lithify-agent( 3958): [2026-10-18T17:39:34Z WARN  librespot_core::dealer] \
+                          failure during data parsing for hm://collection/collection/11160523586/json: Invalid state";
+        let login = "10-18 21:16:20.391 I/lithify-agent( 3958): [2026-10-18T21:16:20Z INFO  librespot_core::session] Authenticated as '11160523586' !";
+        *ACCOUNT.lock().unwrap() = None;
+        let t = redact(&format!("{collection}\n{login}"));
+        assert!(!t.contains("11160523586"), "{t}");
+        assert!(t.contains("hm://collection/collection/11***/json"), "{t}");
+        // the page asks for the last lines only: the account is known from the login seen earlier
+        assert!(redact_line(collection).contains("11160523586"));
+        remember(login.to_string());
+        assert!(!redact_line(collection).contains("11160523586"));
+        assert!(!redact(collection).contains("11160523586"));
+        // a short name stays where it is part of other words
+        assert_eq!(account_names("x Authenticated as 'ann' !"), vec!["11160523586".to_string()]);
+        *ACCOUNT.lock().unwrap() = None;
+    }
+
+    #[test]
+    fn log_stats_take_a_dealer_reconnect_for_none() {
+        let mut s = LogStats::default();
+        let line = |t: &str, rest: &str| format!("10-22 {t} I/lithify-agent( 1976): [2026-10-22T10:16:37Z {rest}");
+        // 2026-10-22 12:16, on the speaker: the server closed the websocket, the dealer came back
+        s.add(&line("12:16:37.748", "WARN  librespot_core::dealer] Websocket connection failed: IO error: peer closed connection without sending TLS close_notify: https://XXXX"));
+        assert_eq!((s.warnings, s.expected, s.recent.len()), (1, 0, 1));
+        s.add(&line("12:16:39.406", "INFO  librespot_connect::spirc] active device is <> with session <c2d7eee5>"));
+        assert_eq!((s.warnings, s.expected, s.recent.len()), (0, 1, 0));
+        // its "Broken pipe" is no underrun; a drop the device's announcement does not follow soon stays
+        s.add(&line("18:43:43.419", "WARN  librespot_core::dealer] Websocket connection failed: IO error: Connection reset by peer (os error 104)"));
+        s.add(&line("18:43:43.419", "WARN  librespot_core::dealer] Error while closing websocket: IO error: Broken pipe (os error 32)"));
+        assert_eq!((s.warnings, s.underruns), (2, 0));
+        s.add(&line("18:43:50.000", "INFO  librespot_connect::spirc] active device is <> with session <x>"));
+        assert_eq!((s.warnings, s.expected, s.recent.len()), (2, 1, 2));
     }
 
     #[test]

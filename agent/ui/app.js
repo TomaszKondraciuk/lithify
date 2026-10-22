@@ -1411,12 +1411,17 @@
 
   // What a log line means: a problem ('bad'), worth a look ('warn'), or expected here ('muted':
   // CDN servers the fail-fast routes skip, librespot 0.8's notes around playback; the agent's
-  // expected_warning knows the same). The official client marks every line "E/", so nothing.
+  // expected_warning knows the same; and mDNS packets of other devices that libmdns cannot read,
+  // which the agent does not count). The official client marks every line "E/", so nothing.
   const EXPECTED = [/librespot_audio::fetch.*NetworkUnreachable/, /context is not available/,
-    /failed filling up next_track during stopping/, /Invalid start position of/];
+    /failed filling up next_track during stopping/, /Invalid start position of/,
+    /libmdns::fsm\] couldn't parse packet from/];
   // Expected as well, as the agent counts them: the device running dry as the next track starts
-  // (within 1.5 s of "loaded"), and the dealer of the session a new login replaced closing
-  // (within 10 s of "Authenticated as").
+  // (within 1.5 s of "loaded"), the dealer of the session a new login replaced closing (within
+  // 10 s of "Authenticated as"), and a dealer whose connection dropped and came back: spirc
+  // announced the device again within 5 s.
+  const DEALER_DROP = /librespot_core::dealer\] (Websocket connection failed|Websocket peer does not respond|Error while closing websocket)/;
+  const DEALER_BACK = /librespot_connect::spirc\] (active device is <|trying to take over control automatically)/;
   const lineMs = (l) => {
     const m = /^\d\d-\d\d (\d\d):(\d\d):(\d\d)\.(\d{3}) /.exec(l);
     return m ? ((Number(m[1]) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1000 + Number(m[4]) : null;
@@ -1424,14 +1429,20 @@
   function muteSwitches(lines, kinds) {
     let loaded = null;
     let login = null;
+    let drops = []; // the dealer's warnings since its connection dropped
     const within = (at, now, ms) => at !== null && now !== null && now >= at && now - at <= ms;
     lines.forEach((l, i) => {
       if (/librespot_playback::player\] .* loaded$/.test(l)) loaded = lineMs(l);
       else if (/librespot_core::session\] Authenticated as/.test(l)) login = lineMs(l);
-      else if (kinds[i] === 'warn') {
+      else if (DEALER_BACK.test(l)) {
         const now = lineMs(l);
-        if ((/underrun|Broken pipe/.test(l) && within(loaded, now, 1500))
+        if (drops.length && within(lineMs(lines[drops[0]]), now, 5000)) drops.forEach((d) => { kinds[d] = 'muted'; });
+        drops = [];
+      } else if (kinds[i] === 'warn') {
+        const now = lineMs(l);
+        if ((/underrun|Broken pipe/.test(l) && !DEALER_DROP.test(l) && within(loaded, now, 1500))
           || (/librespot_core::dealer\] Websocket connection failed/.test(l) && within(login, now, 10000))) kinds[i] = 'muted';
+        else if (DEALER_DROP.test(l)) drops.push(i);
       }
     });
     return kinds;
