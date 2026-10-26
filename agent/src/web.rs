@@ -19,11 +19,11 @@ use std::time::{Duration, Instant};
 
 use crate::settings;
 use crate::{
-    base_dir, BUILD, event, find_bytes as find, find_pid, holds_pcm, http_date, in_route, librespot_args, log,
+    base_dir, BUILD, event, find_bytes as find, find_pid, holds_pcm, http_date, in_route, librespot_args, link_note, log,
     log_flush, mixer_of, official_spotify, opt_value, output_within, pcm_status_seen, proc_uptime_s, read_volume,
     read_within, restart_librespot_now, root_run, root_run_with, shared, spawn_named, system_uptime, take_place, trial_start,
-    unreachable_routes, utc_now, wifi_seen, write_state, Config, INSTALLED_FILE, LIBRESPOT_STATE_FILE, LOG_PATH,
-    SPOTIFY_RESTART,
+    unreachable_routes, utc_now, wifi_seen, write_state, Config, Link, LinkNote, INSTALLED_FILE, LIBRESPOT_STATE_FILE,
+    LOG_PATH, SPOTIFY_RESTART,
 };
 
 const INDEX_HTML: &str = include_str!("../ui/index.html");
@@ -1992,7 +1992,8 @@ fn test_librespot() -> String {
 struct LogStats {
     underruns: u32,
     warnings: u32,
-    /// Warnings that are expected here and say nothing is wrong (see `expected_warning`).
+    /// Lines that are expected here and say nothing is wrong: see `expected_warning`, and the
+    /// losses below once they are over.
     expected: u32,
     errors: u32,
     sessions: u32,
@@ -2003,6 +2004,9 @@ struct LogStats {
     login_at: Option<u32>,
     /// The dealer's warnings since its connection dropped: when the first came, how many.
     dealer_drop: Option<(u32, u32)>,
+    /// The access point's losses since librespot last signed in: how many were counted as
+    /// errors, how many as warnings.
+    session_drop: (u32, u32),
 }
 
 /// A dealer whose connection dropped connects again by itself, and spirc announces the device
@@ -2014,6 +2018,12 @@ fn dealer_drop(line: &str) -> bool {
     line.contains("librespot_core::dealer] Websocket connection failed")
         || line.contains("librespot_core::dealer] Websocket peer does not respond")
         || line.contains("librespot_core::dealer] Error while closing websocket")
+}
+
+/// librespot losing its access point, as LinkWatch tells it (it restarts librespot then, and
+/// the new login is the loss over).
+fn session_lost(line: &str) -> bool {
+    link_note(line) == Some(LinkNote::Lost(Link::Session))
 }
 
 /// spirc announcing the device on a dealer that connected (again).
@@ -2055,6 +2065,13 @@ impl LogStats {
         if line.contains("Authenticated as") {
             self.sessions += 1;
             self.login_at = logcat_ms(line);
+            // Signed in again: an access point lost before is back (LinkWatch restarts librespot
+            // for it), so its losses were no trouble.
+            let (errors, warnings) = std::mem::take(&mut self.session_drop);
+            self.errors -= errors;
+            self.warnings -= warnings;
+            self.expected += errors + warnings;
+            self.drop_recent(errors + warnings, session_lost);
         }
         if line.contains("librespot_playback::player] ") && line.ends_with(" loaded") {
             self.loaded_at = logcat_ms(line);
@@ -2067,13 +2084,7 @@ impl LogStats {
             if let Some((_, n)) = self.dealer_drop.take().filter(|(at, _)| within(Some(*at), DEALER_BACK_MS)) {
                 self.warnings -= n;
                 self.expected += n;
-                let mut left = n;
-                for i in (0..self.recent.len()).rev() {
-                    if left > 0 && dealer_drop(&self.recent[i]) {
-                        self.recent.remove(i);
-                        left -= 1;
-                    }
-                }
+                self.drop_recent(n, dealer_drop);
             }
             return;
         }
@@ -2091,8 +2102,12 @@ impl LogStats {
             self.expected += 1;
             return;
         }
+        let lost = session_lost(line);
         if warn {
             self.warnings += 1;
+            if lost {
+                self.session_drop.1 += 1;
+            }
             if dealer_drop(line) {
                 self.dealer_drop = match self.dealer_drop {
                     Some((at, n)) => Some((at, n + 1)),
@@ -2101,6 +2116,9 @@ impl LogStats {
             }
         } else {
             self.errors += 1;
+            if lost {
+                self.session_drop.0 += 1;
+            }
         }
         if underrun {
             self.underruns += 1;
@@ -2109,6 +2127,17 @@ impl LogStats {
             self.recent.remove(0);
         }
         self.recent.push(line.to_string());
+    }
+
+    /// Take the last `n` lines that `is` picks out of the recent ones.
+    fn drop_recent(&mut self, n: u32, is: fn(&str) -> bool) {
+        let mut left = n;
+        for i in (0..self.recent.len()).rev() {
+            if left > 0 && is(&self.recent[i]) {
+                self.recent.remove(i);
+                left -= 1;
+            }
+        }
     }
 }
 
@@ -2945,6 +2974,30 @@ mod tests {
         s.add(&format!("10-07 18:37:51.984 I/lithify-agent( 1133): [2026-10-07T16:37:51Z {dealer}"));
         assert_eq!((s.warnings, s.expected), (3, 4));
         assert_eq!(logcat_ms("short"), None);
+    }
+
+    #[test]
+    fn log_stats_take_a_lost_access_point_signed_in_again_for_none() {
+        let mut s = LogStats::default();
+        let line = |t: &str, rest: &str| format!("10-26 {t} I/lithify-agent( 3029): [2026-10-26T12:00:00Z {rest}");
+        let closed = "ERROR librespot_core::session] Connection to server closed.";
+        let login = "INFO  librespot_core::session] Authenticated as '11***' !";
+        // 2026-10-26, on the speaker: a failed transfer, then Spotify's access point closed the
+        // connection, and LinkWatch restarted librespot, which signed in again
+        s.add(&line("13:39:17.399", "ERROR librespot_connect::context_resolver] setup of state failed: Invalid state { the current track couldn't be resolved from the transfer state }, last used resolve ResolveContext {"));
+        s.add(&line("15:25:57.109", closed));
+        assert_eq!((s.errors, s.expected, s.recent.len()), (2, 0, 2));
+        s.add("10-26 15:26:26.800 I/lithify-agent( 1398): 2026-10-26 14:26:26Z lithify-agent[1405] librespot lost its connection to Spotify and did not reconnect: restarting it");
+        s.add(&line("15:26:29.320", login));
+        assert_eq!((s.errors, s.expected, s.sessions, s.recent.len()), (1, 1, 1, 1));
+        assert!(s.recent[0].contains("setup of state failed"));
+        // a loss no login has followed yet stays; so do the keep-alive's and a warning's, until one
+        s.add(&line("15:40:29.324", closed));
+        s.add(&line("16:10:00.000", "ERROR librespot_core::session] session lost connection to server (ExpectingPongAck)"));
+        s.add(&line("16:10:01.000", "WARN  librespot_core::session] Connection to server closed."));
+        assert_eq!((s.errors, s.warnings, s.expected, s.recent.len()), (3, 1, 1, 4));
+        s.add(&line("16:10:30.000", login));
+        assert_eq!((s.errors, s.warnings, s.expected, s.recent.len()), (1, 0, 4, 1));
     }
 
     #[test]

@@ -58,13 +58,21 @@ może tylko ściszyć dźwięk poniżej głośności głośnika. Przełącz to z
   albo pasmo 2,4 GHz w budynku z wieloma sieciami powodują przerwy. Sieć 5 GHz zwykle pomaga.
 - **Sprawdź działanie** na karcie librespot liczy niedobory bufora, czyli chwile, w których
   muzyka się skończyła, zanim dotarła kolejna porcja. Kilka przy zmianie utworu nie szkodzi. Wiele
-  w trakcie odtwarzania wskazuje na sieć.
+  w trakcie odtwarzania wskazuje na sieć. Utracone połączenie ze Spotify, które Lithify sam
+  przywrócił, liczy się jako oczekiwane, a nie jako błąd.
 
 ## Wbudowane urządzenie Spotify źle działa
 
 To urządzenie to własny klient Spotify głośnika i Lithify nie może go naprawić. Może go tylko
 uruchomić ponownie. Agent robi to sam, gdy klient się zawiesi albo padnie, a strona ma przycisk
 ponownego uruchomienia. Używaj urządzenia librespot albo ukryj wbudowane na stronie.
+
+## Głośnik sam się uruchomił ponownie
+
+*Ostatnie zdarzenia* na stronie mówią, jak długo głośnik był wyłączony, zanim znowu wystartował.
+Lithify co 5 minut zapisuje, że działa, więc ten czas jest znany z dokładnością do 5 minut. Do
+kilku minut to restart. Dłużej znaczy, że głośnik nie miał zasilania (na przykład przez wyłącznik
+na jego obwodzie) albo się zawiesił. Lithify i tak uruchamia się razem z głośnikiem.
 
 ## Po aktualizacji firmware Lithify zniknął
 

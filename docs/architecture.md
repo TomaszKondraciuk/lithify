@@ -26,7 +26,9 @@
   librespot            static armv7 binary
   lithify-agent        static armv7 binary (this repository's agent/)
   settings/            settings.conf (the speaker's settings), install.conf, settings.good.conf
-                       (the last settings librespot ran well with)
+                       (the last settings librespot ran well with), alive (when the agent last
+                       ran, renewed every 5 minutes: after a reboot it tells how long the
+                       speaker was down)
   VERSIONS             what this bundle contains
   SHA256SUMS           checksums of the installed files
   alsa/                alsa-lib configuration for the static librespot (ALSA_CONFIG_DIR)

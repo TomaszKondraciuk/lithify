@@ -183,11 +183,17 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
+/// Seconds since 1970 (0 for a clock before that).
+fn unix_now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
 fn utc_now() -> String {
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
+    utc_of(unix_now() as i64)
+}
+
+/// A time (seconds since 1970) the way the log writes it ("2026-10-23 18:29:31Z").
+fn utc_of(secs: i64) -> String {
     let (y, m, d) = civil_from_days(secs.div_euclid(86_400));
     let sod = secs.rem_euclid(86_400);
     format!(
@@ -366,7 +372,7 @@ fn shared() -> MutexGuard<'static, Shared> {
 /// Log a watchdog action and keep the last few for the web page.
 fn event(msg: &str) {
     log(msg);
-    let line = event_line(msg, SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0), system_uptime());
+    let line = event_line(msg, unix_now(), system_uptime());
     let mut s = shared();
     if s.events.len() >= 20 {
         s.events.remove(0);
@@ -374,10 +380,13 @@ fn event(msg: &str) {
     s.events.push(line);
 }
 
-/// An event with its UTC time. Right after a power cut the speaker's clock is not set yet
-/// (it says 1970 until the network gives it the time): then the time since the start instead.
+/// 2020-09-13: anything earlier is a clock not set yet (right after a power cut the speaker's
+/// clock says 1970 until the network gives it the time).
+const CLOCK_SET: u64 = 1_600_000_000;
+
+/// An event with its UTC time. Right after a power cut the speaker's clock is not set yet: then
+/// the time since the start instead.
 fn event_line(msg: &str, unix_now: u64, uptime: Option<f64>) -> String {
-    const CLOCK_SET: u64 = 1_600_000_000; // 2020-09-13: anything earlier is a clock not set yet
     if unix_now >= CLOCK_SET {
         return format!("{} {msg}", utc_now());
     }
@@ -2599,6 +2608,7 @@ fn cmd_run() -> i32 {
         spawn_named("web", move || web::serve(web_cfg));
         spawn_named("names", web::name_watch); // the page warns of another device with this name
     }
+    spawn_named("alive", alive_watch);
 
     let tck = clk_tck();
     let mut spin = SpinWatch::new();
@@ -2627,6 +2637,74 @@ fn cmd_run() -> i32 {
         }
         thread::sleep(Duration::from_secs(5));
     }
+}
+
+// ── how long the speaker was down ────────────────────────────────────────
+// The agent's log lives in /tmp: a reboot takes with it what came before. So every few minutes
+// the agent notes on the flash that it runs, and once it starts again after a reboot it tells
+// from that note how long the speaker was down. A restart takes about a minute; much longer
+// means the speaker had no power (or hung).
+
+/// The note: when the agent last ran (seconds since 1970). In settings/, which the services'
+/// user owns and an update leaves in place.
+fn alive_file() -> PathBuf {
+    settings::dir().join("alive")
+}
+
+/// How often the note is renewed: a few bytes every five minutes are nothing to the flash, and
+/// they tell a restart from a power cut longer than a few minutes.
+const ALIVE_EVERY: Duration = Duration::from_secs(300);
+
+/// Renews the note, in a thread of its own (a slow flash must not hold up the watchdog). Its
+/// first look, once the clock is set, says how long the speaker was down before this start.
+fn alive_watch() {
+    while unix_now() < CLOCK_SET {
+        thread::sleep(Duration::from_secs(5));
+    }
+    let last = fs::read_to_string(alive_file()).ok().and_then(|t| t.trim().parse::<u64>().ok());
+    if let (Some(last), Some(up)) = (last, system_uptime()) {
+        let now = unix_now();
+        if let Some(note) = down_note(last, now, up) {
+            log(&format!(
+                "the agent last ran at {}; the speaker started at {}",
+                utc_of(last as i64),
+                utc_of(now as i64 - up as i64)
+            ));
+            event(&note);
+        }
+    }
+    let mut told = false;
+    loop {
+        match settings::write_atomic(&alive_file(), &format!("{}\n", unix_now())) {
+            Ok(()) => told = false,
+            Err(e) if !told => {
+                told = true;
+                log(&format!("cannot note that the agent runs ({e}): after a reboot, how long the speaker was down will not be known"));
+            }
+            Err(_) => {}
+        }
+        thread::sleep(ALIVE_EVERY);
+    }
+}
+
+/// What to say about the time before this start, from when the agent last ran (`last`), the time
+/// now and the speaker's uptime, in seconds: nothing when the agent ran since the speaker started
+/// (only the agent started again).
+fn down_note(last: u64, now: u64, uptime: f64) -> Option<String> {
+    let started = now.checked_sub(uptime as u64)?;
+    let gap = started.checked_sub(last).filter(|&g| g > 0)?;
+    // It went down within ALIVE_EVERY after the note, and was back when it started.
+    let (low, high) = (gap.saturating_sub(ALIVE_EVERY.as_secs()) / 60, gap.div_ceil(60));
+    let span = if low == 0 {
+        format!("at most {high} min")
+    } else if gap < 2 * 3600 {
+        format!("{low}-{high} min")
+    } else if gap < 2 * 86_400 {
+        format!("about {} h", (gap + 1800) / 3600)
+    } else {
+        format!("about {} days", (gap + 43_200) / 86_400)
+    };
+    Some(format!("the speaker started: before that it was down for {span}"))
 }
 
 // ── spinning firmware shells ─────────────────────────────────────────────
@@ -3387,6 +3465,27 @@ mod tests {
         assert_eq!(event_line("x", 120, Some(42.7)), "42 s after the speaker started: x");
         assert_eq!(event_line("x", 120, None), "at start-up: x");
         assert!(event_line("x", 1_800_000_000, Some(5.0)).ends_with("Z x"));
+    }
+
+    #[test]
+    fn a_start_after_a_reboot_says_how_long_the_speaker_was_down() {
+        // 2026-10-23 18:29:31Z the speaker started, and the agent 48 s later
+        let started = 1_792_780_171;
+        assert_eq!(utc_of(started as i64), "2026-10-23 18:29:31Z");
+        let (now, up) = (started + 48, 48.6);
+        let down = |last: u64| down_note(last, now, up);
+        // only the agent started again: it ran since the speaker started
+        assert_eq!(down(started + 30), None);
+        assert_eq!(down(started), None);
+        // a restart (the last note at most five minutes before), then power cuts
+        let said = |last: u64| down(last).unwrap().replace("the speaker started: before that it was down for ", "");
+        assert_eq!(said(started - 200), "at most 4 min");
+        assert_eq!(said(started - 2400), "35-40 min");
+        assert_eq!(said(started - 5 * 3600 - 100), "about 5 h");
+        assert_eq!(said(started - 3 * 86_400), "about 3 days");
+        // a clock that went back, an uptime longer than the time
+        assert_eq!(down(now + 100), None);
+        assert_eq!(down_note(0, 10, 20.0), None);
     }
 
     #[test]
