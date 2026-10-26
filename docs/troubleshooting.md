@@ -53,13 +53,21 @@ only make the sound quieter than the speaker's own volume. Switch it back on the
   2.4 GHz band in a building with many networks, causes drop-outs. A 5 GHz network usually helps.
 - **Run a check** on the librespot card counts buffer underruns, the moments when music ran out
   before more arrived. A few at track changes are harmless. Many during playback point to the
-  network.
+  network. A lost connection to Spotify that Lithify restored by itself counts as expected, not as
+  an error.
 
 ## The built-in Spotify device misbehaves
 
 That device is the speaker's own Spotify client, and Lithify cannot fix it. It can only restart
 it. The agent does that by itself when the client hangs or crashes, and the page has a restart
 button. Use the librespot device instead, or hide the built-in one on the page.
+
+## The speaker restarted by itself
+
+*Recent events* on the page say how long the speaker was down before it started again. Lithify
+notes every 5 minutes that it runs, so that time is known to within 5 minutes. Up to a few
+minutes is a restart. Longer means the speaker had no power, for example from a switch on its
+circuit, or that it hung. Lithify starts with the speaker either way.
 
 ## After a firmware update Lithify is gone
 
