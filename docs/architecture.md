@@ -145,7 +145,8 @@ How it stays light and recovers on its own:
   patch `log-keepalive-loss`) and the dealer, the connection the apps' commands come through,
   until it is back (spirc announcing the device on it again). A loss reported within 10 s of a new
   login is the replaced session's and does not count. While Spotify does not answer (the
-  internet is down), the restart waits: a new librespot could not sign in.
+  internet is down), the restart waits: a new librespot could not sign in. The page's check
+  counts an access point lost and signed in to again as expected.
 - **Nothing it starts can hang it**: tools (amixer, iwconfig, df) get a few seconds and are then
   killed, and a call that is stuck in a driver is not made again until it returns (the page gets
   the last answer meanwhile); the volume is read straight from the kernel (one ioctl), amixer is
@@ -158,6 +159,10 @@ How it stays light and recovers on its own:
   the default port 8090.
 - **Fail-fast routes expire** a day after their address was last resolved, and go away when the
   settings no longer ask for them.
+- **How long the speaker was down**: the agent's log lives in `/tmp` and goes with a reboot, so
+  every 5 minutes the agent notes in `settings/alive` that it runs (from a thread of its own, once
+  the clock is set). Started again after a reboot, it adds an event saying how long the speaker
+  was down, to within those 5 minutes: about a minute is a restart, longer a power cut.
 
 ## Audio format
 
