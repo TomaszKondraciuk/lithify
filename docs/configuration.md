@@ -55,6 +55,7 @@ bitrate = 160
 | Option | Default | Meaning |
 |---|---|---|
 | `bitrate` | `320` | Stream quality in kbit/s: `96`, `160` or `320`. |
+| `channels` | `"stereo"` | `"mono"` mixes the left and the right channel into both outputs: the choice for a single speaker, which with its Stereo/Mono switch on stereo plays the left channel only. Only for Spotify through Lithify (Cast and AirPlay follow the switch). |
 | `device_type` | `"speaker"` | Icon in Spotify: `speaker`, `avr`, `tv`, `stb` (shown with the speaker icon), `computer`, `tablet`, `smartphone`. With `audiodongle`, `gameconsole`, `castaudio` or `castvideo` the Spotify apps hide the device from Spotify Connect, so the web page does not offer them. |
 | `backend` | `"alsa"` | Audio backend. |
 | `device` | `"plughw:0,0"` | ALSA output; `plughw` converts sample formats and rates as needed. |

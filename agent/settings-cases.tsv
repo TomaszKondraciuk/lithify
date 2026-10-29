@@ -12,6 +12,9 @@ value	name	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx	xxxx
 value	name	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx	<refused>
 value	bitrate	\s160\s	160
 value	bitrate	128	<refused>
+value	channels	mono	mono
+value	channels	\sstereo\s	stereo
+value	channels	quad	<refused>
 value	mixer	ALSA	alsa
 value	normalisation	Yes	true
 value	normalisation	off	false

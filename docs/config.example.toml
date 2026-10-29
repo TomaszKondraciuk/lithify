@@ -5,6 +5,7 @@
 # ── settings for every speaker ──────────────────────────────────────────────
 [defaults.librespot]
 bitrate = 320                 # 96 | 160 | 320 kbit/s
+channels = "stereo"           # "stereo" | "mono" (one speaker: both channels mixed)
 device_type = "speaker"       # icon in Spotify
 backend = "alsa"
 device = "plughw:0,0"         # ALSA output

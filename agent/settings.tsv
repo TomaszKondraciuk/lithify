@@ -9,6 +9,7 @@
 #   restart: what restarts when it changes (librespot or agent)
 name                     speaker    text    -           name                          basic     librespot
 bitrate                  librespot  choice  320         96|160|320                    basic     librespot
+channels                 librespot  choice  stereo      stereo|mono                   basic     librespot
 mixer                    librespot  choice  alsa        alsa|softvol                  basic     librespot
 volume_ctrl              librespot  choice  linear      linear|log|cubic|fixed        basic     librespot
 initial_volume           librespot  volume  current     0-100                         basic     librespot

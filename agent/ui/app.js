@@ -125,6 +125,8 @@
       s_name: 'Name in Spotify', h_name: 'How the speaker is listed in the Spotify app.',
       s_bitrate: 'Audio quality', c_bitrate_96: '96 kbit/s (saves data)', c_bitrate_160: '160 kbit/s (normal)',
       c_bitrate_320: '320 kbit/s (very high)',
+      s_channels: 'Channels', c_channels_stereo: 'stereo', c_channels_mono: 'mono',
+      h_channels: 'Mono mixes the left and the right channel, so one speaker plays all of the music: the choice for a single speaker. For Spotify through Lithify; Cast, AirPlay and Bluetooth follow the Stereo/Mono switch on the speaker itself.',
       s_mixer: 'Volume control', c_mixer_alsa: 'Spotify slider = speaker volume (recommended)',
       c_mixer_softvol: 'librespot only (software)',
       s_volume_ctrl: 'Volume curve', c_volume_ctrl_linear: 'linear', c_volume_ctrl_log: 'logarithmic',
@@ -288,6 +290,8 @@
       s_name: 'Nazwa w Spotify', h_name: 'Tak głośnik widać w aplikacji Spotify.',
       s_bitrate: 'Jakość dźwięku', c_bitrate_96: '96 kbit/s (oszczędna)', c_bitrate_160: '160 kbit/s (normalna)',
       c_bitrate_320: '320 kbit/s (bardzo wysoka)',
+      s_channels: 'Kanały', c_channels_stereo: 'stereo', c_channels_mono: 'mono',
+      h_channels: 'Mono miesza lewy i prawy kanał, więc jeden głośnik gra całą muzykę: wybór przy pojedynczym głośniku. Dotyczy Spotify przez Lithify; Cast, AirPlay i Bluetooth słuchają przełącznika Stereo/Mono na samym głośniku.',
       s_mixer: 'Regulacja głośności', c_mixer_alsa: 'suwak w Spotify = głośność głośnika (zalecane)',
       c_mixer_softvol: 'tylko w librespot (programowa)',
       s_volume_ctrl: 'Krzywa głośności', c_volume_ctrl_linear: 'liniowa', c_volume_ctrl_log: 'logarytmiczna',
@@ -1124,6 +1128,18 @@
   };
   const UNKNOWN_ICON = ['M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z', 'M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6',
     'M12 17.2v.1'];
+  // Stereo: two speakers, each with a channel of its own; mono: one speaker sounding both ways.
+  const CHANNEL_ICONS = {
+    stereo: ['M3.5 6h5A1.5 1.5 0 0 1 10 7.5v11A1.5 1.5 0 0 1 8.5 20h-5A1.5 1.5 0 0 1 2 18.5v-11A1.5 1.5 0 0 1 3.5 6z',
+      'M6 12.4a2.1 2.1 0 1 0 0 4.2a2.1 2.1 0 1 0 0-4.2z', 'M6 8.6a.8.8 0 1 0 0 1.6a.8.8 0 1 0 0-1.6z',
+      'M15.5 6h5A1.5 1.5 0 0 1 22 7.5v11a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-11A1.5 1.5 0 0 1 15.5 6z',
+      'M18 12.4a2.1 2.1 0 1 0 0 4.2a2.1 2.1 0 1 0 0-4.2z', 'M18 8.6a.8.8 0 1 0 0 1.6a.8.8 0 1 0 0-1.6z'],
+    mono: ['M9 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      'M12 11a3 3 0 1 0 0 6a3 3 0 1 0 0-6z', 'M12 6.9a1 1 0 1 0 0 2a1 1 0 1 0 0-2z',
+      'M4.5 9.5a4 4 0 0 0 0 5', 'M19.5 9.5a4 4 0 0 1 0 5'],
+  };
+  // The choices shown as pictures to pick from.
+  const PICTURES = { device_type: ICONS, channels: CHANNEL_ICONS };
 
   function icon(paths) {
     const ns = 'http://www.w3.org/2000/svg';
@@ -1138,18 +1154,18 @@
     return svg;
   }
 
-  // The device type as a row of icons to pick from; a type set elsewhere that Spotify may hide
-  // stays visible here, marked.
-  function iconPicker(o, id, value, help) {
+  // A choice as a row of pictures to pick from (`icons`: one per choice). A device type set
+  // elsewhere that has none, one Spotify may hide, stays visible here, marked.
+  function iconPicker(o, id, value, help, icons) {
     const set = el('fieldset', { class: 'field', 'data-key': o.key, role: 'radiogroup' }, el('legend', { text: label(o.key) }));
-    const types = Object.keys(ICONS).filter((k) => o.choices.includes(k));
+    const types = Object.keys(icons).filter((k) => o.choices.includes(k));
     if (value && !types.includes(value)) types.push(value);
     const tiles = el('div', { class: 'tiles' });
     for (const k of types) {
-      const risky = !ICONS[k];
+      const risky = !icons[k];
       const r = el('input', { type: 'radio', name: id, id: `${id}-${k}`, value: k, checked: k === value });
       tiles.append(el('label', { class: risky ? 'tile risky' : 'tile', for: r.id, title: risky ? t('icon_risky') : null },
-        r, icon(ICONS[k] || UNKNOWN_ICON), choiceLabel(o.key, k)));
+        r, icon(icons[k] || UNKNOWN_ICON), choiceLabel(o.key, k)));
     }
     set.append(tiles);
     if (help) set.append(help);
@@ -1188,7 +1204,7 @@
       return wrap;
     }
     if (o.type === 'choice' && o.choices.length < 2) return null; // nothing to choose
-    if (o.key === 'device_type') return iconPicker(o, id, value, help);
+    if (PICTURES[o.key]) return iconPicker(o, id, value, help, PICTURES[o.key]);
     if (o.type === 'choice' && o.choices.length <= RADIO_MAX) {
       const set = el('fieldset', { class: 'field', 'data-key': o.key, role: 'radiogroup' }, el('legend', { text: label(o.key) }));
       for (const c of o.choices) {

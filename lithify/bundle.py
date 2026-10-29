@@ -754,8 +754,11 @@ def _build(force: bool, root: Path, cache: Path, pins: dict) -> Path:
     hostos.rmtree(bundle, quiet=False)
     bundle.mkdir()
     shutil.copy2(binary, bundle / "librespot")
-    sh([*docker_run(img, [(AGENT_TARGET_VOLUME, "/target", True), (bundle, "/out")]), "sh", "-c",
-        f"cp /target/{TARGET}/release/lithify-agent /out/ && tar -C /opt/alsa-conf -cf /out/alsa.tar alsa"], log)
+    # alsa-lib's configuration, with Lithify's own definitions (build/alsa-lithify.conf) at its end.
+    mounts = [(AGENT_TARGET_VOLUME, "/target", True), (bundle, "/out"), (root / "build", "/build", True)]
+    sh([*docker_run(img, mounts), "sh", "-c", f"cp /target/{TARGET}/release/lithify-agent /out/"
+        " && cp -a /opt/alsa-conf/alsa /tmp/alsa && cat /build/alsa-lithify.conf >> /tmp/alsa/alsa.conf"
+        " && tar -C /tmp -cf /out/alsa.tar alsa"], log)
     lock = (src / "Cargo.lock").read_text(encoding="utf-8")
     # (named by its patches rather than git's "-dirty", which they cause)
     describe = sh(["git", "-C", src, "describe", "--tags", "--always"]).stdout.strip()
