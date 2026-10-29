@@ -33,6 +33,7 @@
       rollback_to: 'Roll back to the previous version ({0})', rollback_lr: 'Roll back to librespot {0}',
       build_of: 'build of {0}', restart_agent: 'Restart agent', load_logs: 'Show logs', log_source: 'Log source',
       log_lithify: 'librespot + agent', log_agent: 'agent only', log_official: 'official Spotify',
+      log_board: 'amplifier board',
       footer: 'Lithify runs on the speaker; new versions are built on your computer.',
       k_seen_as: 'In Spotify as', k_version: 'Version', k_account: 'Spotify account', k_uptime: 'Running for',
       k_now: 'Now', now_lr: 'playing', now_paused: 'paused', now_other: 'another source is playing', now_idle: 'nothing playing',
@@ -57,6 +58,7 @@
       lr_log: 'Since {0}: {1} buffer underruns, {2} warnings, {3} errors.', lr_log_expected: '(not counting {0} expected messages)',
       log_summary: 'Errors: {0}, warnings: {1}, expected messages (dimmed): {2}. Expected are the CDN servers fail-fast skips, librespot’s known, harmless notes and the moment of silence when a track is switched.',
       log_official_note: 'The official Spotify marks every message “E” (error), ordinary playback events too – they are not failures.',
+      log_board_note: 'What the speaker and its amplifier board (it has a controller of its own) said to each other, kept across restarts. Times are the speaker’s; 01-01 means before its clock was set.',
       confirm_restart_lr: 'Restart librespot? Playback through it stops for a few seconds.',
       confirm_restart_off: 'Restart the speaker’s official Spotify service?',
       confirm_restart_agent: 'Restart the agent? This page reconnects by itself.',
@@ -193,6 +195,7 @@
       rollback_to: 'Przywróć poprzednią wersję ({0})', rollback_lr: 'Przywróć librespot {0}',
       build_of: 'kompilacja z {0}', restart_agent: 'Uruchom ponownie agenta', load_logs: 'Pokaż logi', log_source: 'Źródło logów',
       log_lithify: 'librespot + agent', log_agent: 'tylko agent', log_official: 'oficjalny Spotify',
+      log_board: 'płytka wzmacniacza',
       footer: 'Lithify działa na głośniku; nowe wersje buduje Twój komputer.',
       k_seen_as: 'W Spotify jako', k_version: 'Wersja', k_account: 'Konto Spotify', k_uptime: 'Czas działania',
       k_now: 'Teraz', now_lr: 'gra', now_paused: 'wstrzymane', now_other: 'gra inne źródło', now_idle: 'nic nie gra',
@@ -217,6 +220,7 @@
       lr_log: 'Od {0}: niedobory bufora: {1}, ostrzeżenia: {2}, błędy: {3}.', lr_log_expected: '(pominięte oczekiwane komunikaty: {0})',
       log_summary: 'Błędy: {0}, ostrzeżenia: {1}, oczekiwane komunikaty (wyszarzone): {2}. Oczekiwane to serwery CDN pominięte przez fail-fast, znane, niegroźne komunikaty librespot i chwila ciszy przy przełączaniu utworu.',
       log_official_note: 'Oficjalny Spotify oznacza każdy komunikat literą „E” (błąd), także zwykłe zdarzenia odtwarzania – to nie są awarie.',
+      log_board_note: 'Co głośnik i jego płytka wzmacniacza (ma własny sterownik) przekazali sobie nawzajem, zachowane po ponownym uruchomieniu. Czas jest czasem głośnika; 01-01 oznacza, że jego zegar nie był jeszcze ustawiony.',
       confirm_restart_lr: 'Uruchomić ponownie librespot? Odtwarzanie przez niego zatrzyma się na kilka sekund.',
       confirm_restart_off: 'Uruchomić ponownie oficjalną usługę Spotify głośnika?',
       confirm_restart_agent: 'Uruchomić ponownie agenta? Strona połączy się sama.',
@@ -1449,7 +1453,7 @@
   }
 
   function logKind(line, source) {
-    if (source === 'official') return '';
+    if (source === 'official' || source === 'board') return '';
     if (/underrun|Broken pipe/.test(line)) return 'warn';
     if (/ ERROR |\bpanicked\b/.test(line)) return 'bad';
     if (/ WARN /.test(line)) return EXPECTED.some((re) => re.test(line)) ? 'muted' : 'warn';
@@ -1628,7 +1632,8 @@
         const kinds = muteSwitches(lines, lines.map((l) => logKind(l, source)));
         const count = (k) => kinds.filter((x) => x === k).length;
         const pre = el('pre', null, ...lines.map((l, i) => el('span', { class: kinds[i] || null, text: `${l}\n` })));
-        show('out-logs', source === 'official' ? note(t('log_official_note'))
+        const notes = { official: 'log_official_note', board: 'log_board_note' };
+        show('out-logs', notes[source] ? note(t(notes[source]))
           : msg(t('log_summary', count('bad'), count('warn'), count('muted')), count('bad') ? 'bad' : count('warn') ? 'warn' : 'ok'), pre);
         pre.scrollTop = pre.scrollHeight;
       } catch (e) {
