@@ -28,7 +28,8 @@
   settings/            settings.conf (the speaker's settings), install.conf, settings.good.conf
                        (the last settings librespot ran well with), alive (when the agent last
                        ran, renewed every 5 minutes: after a reboot it tells how long the
-                       speaker was down)
+                       speaker was down), board.log (the messages between the speaker and its
+                       amplifier board, kept across reboots)
   VERSIONS             what this bundle contains
   SHA256SUMS           checksums of the installed files
   alsa/                alsa-lib configuration for the static librespot (ALSA_CONFIG_DIR)
@@ -120,7 +121,8 @@ in `/tmp/lithify_uninstall.log` until then. The script restarts the speaker when
 How it stays light and recovers on its own:
 
 - **One logcat reader** for everything it reads (librespot's and its own lines for the page,
-  official Spotify's errors for the silent-start watch). Each reader receives the speaker's whole
+  official Spotify's errors for the silent-start watch, the amplifier board's messages for
+  `settings/board.log`). Each reader receives the speaker's whole
   log from logd, and the kernel stops it together with the agent (`PR_SET_PDEATHSIG`); readers an
   older agent left behind are stopped at start.
 - **Polling reads one file, not all of /proc**: the last pid of a process is checked first, and
@@ -163,6 +165,16 @@ How it stays light and recovers on its own:
   every 5 minutes the agent notes in `settings/alive` that it runs (from a thread of its own, once
   the clock is set). Started again after a reboot, it adds an event saying how long the speaker
   was down, to within those 5 minutes: about a minute is a restart, longer a power cut.
+- **The amplifier board's messages**: the board that drives the speaker's drivers has a
+  controller of its own on a serial line to the Libre module, and the firmware logs every
+  message on that line (tag `luciUART`). The board has been seen to switch to its RCA input on
+  its own (a solid purple light): librespot played on, but nothing was heard until the speaker
+  restarted. So that the restart does not take along what the board said, the agent keeps those
+  messages in `settings/board.log` (64 KB, then one older file), from a thread of its own. Each
+  is written once: not again when an agent started again finds it in logcat, and not when the
+  firmware repeats it within 2 s (it sends a new volume two or three times). A secret the
+  firmware hands the board (an AirPlay password) is not kept. The page shows the file under
+  *Logs*.
 
 ## Audio format
 

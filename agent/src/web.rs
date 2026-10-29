@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use crate::settings;
 use crate::{
-    base_dir, BUILD, event, find_bytes as find, find_pid, holds_pcm, http_date, in_route, librespot_args, link_note, log,
+    base_dir, board_log, BUILD, event, find_bytes as find, find_pid, holds_pcm, http_date, in_route, librespot_args, link_note, log,
     log_flush, mixer_of, official_spotify, opt_value, output_within, pcm_status_seen, proc_uptime_s, read_volume,
     read_within, restart_librespot_now, root_run, root_run_with, shared, spawn_named, system_uptime, take_place, trial_start,
     unreachable_routes, utc_now, wifi_seen, write_state, Config, Link, LinkNote, INSTALLED_FILE, LIBRESPOT_STATE_FILE,
@@ -1765,12 +1765,13 @@ fn tail_file(path: &str, n: usize) -> String {
     tail_lines(&text, n)
 }
 
-/// The log asked for: the agent's own file, the official client's lines, or librespot's and the
-/// agent's (anything else).
+/// The log asked for: the agent's own file, the official client's lines, the amplifier board's
+/// messages, or librespot's and the agent's (anything else).
 fn log_source(req: &Request) -> &'static str {
     match req.param("source") {
         Some("agent") => "agent",
         Some("official") => "official",
+        Some("board") => "board",
         _ => "ours",
     }
 }
@@ -1786,6 +1787,7 @@ fn logs(req: &Request) -> Response {
     let text = match log_source(req) {
         "agent" => Some(tail_file(LOG_PATH, n)),
         "official" => logcat(&["SPOTIFY:*", "SP_RING:*"], n),
+        "board" => Some(tail_file(&board_log().to_string_lossy(), n)),
         _ => Some(our_lines(n)), // librespot and the agent, via the Cast process manager
     };
     match text {
@@ -3432,6 +3434,7 @@ mod tests {
         };
         assert_eq!(kind("source=agent&n=400"), ("agent", 400));
         assert_eq!(kind("source=official&n=10"), ("official", 400));
+        assert_eq!(kind("source=board&n=1000"), ("board", 1000));
         assert_eq!(kind("source=x1&n=401"), ("ours", 1000));
         assert_eq!(kind("n=99999"), ("ours", 3000));
         assert_eq!(kind("n=-5"), ("ours", 400));

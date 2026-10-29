@@ -2149,10 +2149,11 @@ fn luci_session(mut l: Luci, cfg_conflict: bool) {
 
 // ── logcat ───────────────────────────────────────────────────────────────
 // The Cast process manager logs librespot's output and the agent's stderr under the tag
-// "lithify-agent"; official Spotify logs as SPOTIFY and SP_RING. One logcat reads them all:
-// every logcat receives the speaker's whole (busy) log from logd and filters it itself.
+// "lithify-agent"; official Spotify logs as SPOTIFY and SP_RING, and luci_service what passes
+// between the speaker and its amplifier board as luciUART. One logcat reads them all: every
+// logcat receives the speaker's whole (busy) log from logd and filters it itself.
 
-const LOGCAT_FILTERS: [&str; 3] = ["lithify-agent:*", "SPOTIFY:E", "SP_RING:E"];
+const LOGCAT_FILTERS: [&str; 4] = ["lithify-agent:*", "SPOTIFY:E", "SP_RING:E", "luciUART:I"];
 
 /// A reader must not outlive the agent: an orphaned logcat keeps receiving the whole log until
 /// it next has a line to write, which for a rare tag can be never.
@@ -2201,10 +2202,11 @@ fn logcat_tag(line: &str) -> Option<&str> {
 /// Lines for the silent-start watch that may wait for it; more are dropped (it keeps up easily).
 const OFFICIAL_QUEUE: usize = 512;
 
-/// Hands librespot's and the agent's lines to the web page (`keep_lines`) and official Spotify's
-/// errors to the silent-start watch. A logcat that cannot start, or ends soon, is tried again
-/// later and later (up to every few minutes), never given up on.
-fn logcat_reader(official: mpsc::SyncSender<String>, keep_lines: bool) {
+/// Hands librespot's and the agent's lines to the web page (`keep_lines`), official Spotify's
+/// errors to the silent-start watch and the amplifier board's messages to their writer (with
+/// whether logcat had them before this reader started). A logcat that cannot start, or ends
+/// soon, is tried again later and later (up to every few minutes), never given up on.
+fn logcat_reader(official: mpsc::SyncSender<String>, board: mpsc::SyncSender<(String, bool)>, keep_lines: bool) {
     let mut tail = Some("2000"); // what logcat still has from before the agent started
     let mut pause = Duration::from_secs(5);
     loop {
@@ -2252,6 +2254,9 @@ fn logcat_reader(official: mpsc::SyncSender<String>, keep_lines: bool) {
                     }
                     Some("SPOTIFY" | "SP_RING") if new => {
                         let _ = official.try_send(line);
+                    }
+                    Some("luciUART") => {
+                        let _ = board.try_send((line, !new));
                     }
                     _ => {}
                 }
@@ -2324,6 +2329,132 @@ fn silent_start_watch(seconds: u64, action: String, rx: mpsc::Receiver<String>) 
                     log(&format!("silent-start action failed: {e}"));
                 }
             }
+        }
+    }
+}
+
+// ── the amplifier board ──────────────────────────────────────────────────
+// The board that drives the speaker's drivers has a microcontroller of its own on a serial line
+// to the Libre module, and luci_service logs every message on it. The board can switch to its
+// RCA input by itself (a solid purple light, no sound over Wi-Fi) while librespot plays on; a
+// restart brings it back. Its messages are kept on the flash, where that restart does not take
+// them along, to find out what the board says when it switches.
+
+/// Messages from and to the board: in settings/, which the services' user owns and an update
+/// leaves in place.
+fn board_log() -> PathBuf {
+    settings::dir().join("board.log")
+}
+
+/// 64 KB, and as much again in board.log.1: a few thousand messages, months of ordinary use.
+const BOARD_LOG_MAX: u64 = 64 * 1024;
+
+/// The stamp of the last message taken since the speaker started. On tmpfs, so it goes with a
+/// reboot like logcat's lines do: an agent started again keeps only what it has not kept yet.
+const BOARD_SEEN: &str = "/tmp/lithify-board.seen";
+
+/// Lines waiting for the writer; more are dropped (a slow flash must not hold up the reader).
+const BOARD_QUEUE: usize = 64;
+
+/// The stamp of a `logcat -v time` line ("10-29 14:16:16.412", local time; "01-01 01:00:27.835"
+/// before the clock is set) and the board message in it; None for anything else.
+fn board_message(line: &str) -> Option<(&str, String)> {
+    let stamp = line.get(..18)?;
+    stamp_ms(stamp)?;
+    let (_, text) = line.split_once("): ")?;
+    if let Some(rest) = text.strip_prefix("read() ") {
+        // The firmware prints its receive buffer as a C string: past DataLen it holds the end of
+        // an earlier, longer message ("44AD_BT_DeviceName…"). The line before it, without sData,
+        // says the same.
+        let (head, data) = rest.split_once(" sData = ")?;
+        let field = |name: &str| -> Option<u32> { head.split(name).nth(1)?.split(' ').next()?.parse().ok() };
+        let (command, kind, len) = (field("Command = ")?, field("Type = ")?, field("DataLen = ")?);
+        let mut end = (len as usize).min(data.len());
+        while !data.is_char_boundary(end) {
+            end -= 1;
+        }
+        let kind = match kind {
+            1 => "get".to_string(),
+            2 => "set".to_string(),
+            k => format!("type {k}"),
+        };
+        return Some((stamp, format!("from board {command} {kind} {:?}", hide_secret(&data[..end]))));
+    }
+    let rest = text.strip_prefix("write() ")?;
+    let mid: u32 = rest.strip_prefix("MID = ")?.split(' ').next()?.parse().ok()?;
+    let (_, data) = rest.split_once(" data = ")?;
+    let data = data.rsplit_once(" m_fd = ").map_or(data, |(d, _)| d);
+    Some((stamp, format!("to board {mid} {:?}", hide_secret(if data == "(null)" { "" } else { data }))))
+}
+
+/// The firmware hands the board settings as "Key:value" ("AirplayPassword:…"): a value whose key
+/// names a secret is not kept (the page shows logs to the whole network).
+fn hide_secret(data: &str) -> String {
+    match data.split_once(':') {
+        Some((key, value)) if !value.is_empty() => {
+            let key_lc = key.to_ascii_lowercase();
+            if ["pass", "psk", "secret", "token", "key", "pin"].iter().any(|w| key_lc.contains(w)) {
+                return format!("{key}:***");
+            }
+            data.to_string()
+        }
+        _ => data.to_string(),
+    }
+}
+
+/// Milliseconds into the year of a logcat stamp, near enough to tell stamps a few seconds apart
+/// (every month counts 31 days); None when it is not one.
+fn stamp_ms(stamp: &str) -> Option<u64> {
+    let b = stamp.as_bytes();
+    if b.len() != 18 || b[2] != b'-' || b[5] != b' ' || b[8] != b':' || b[11] != b':' || b[14] != b'.' {
+        return None;
+    }
+    let n = |at: usize, len: usize| -> Option<u64> {
+        let s = stamp.get(at..at + len)?;
+        if s.bytes().all(|c| c.is_ascii_digit()) { s.parse().ok() } else { None }
+    };
+    Some(((((n(0, 2)? * 31 + n(3, 2)?) * 24 + n(6, 2)?) * 60 + n(9, 2)?) * 60 + n(12, 2)?) * 1000 + n(15, 3)?)
+}
+
+/// Which of the board's lines get written: each message once, even when an agent started again
+/// finds it in logcat once more, and a message the firmware sends two or three times in a row
+/// (the volume) once.
+struct BoardLog {
+    /// The stamp of the last message taken (see BOARD_SEEN).
+    seen: String,
+    /// The last message written, and when.
+    last: Option<(String, u64)>,
+}
+
+impl BoardLog {
+    /// The line to write for a logcat line, if any (`old`: logcat had it before the reader started).
+    fn take(&mut self, line: &str, old: bool) -> Option<String> {
+        let (stamp, msg) = board_message(line)?;
+        if old && stamp <= self.seen.as_str() {
+            return None;
+        }
+        self.seen = stamp.to_string();
+        let at = stamp_ms(stamp)?;
+        if self.last.as_ref().is_some_and(|(m, t)| *m == msg && at.abs_diff(*t) <= 2000) {
+            return None;
+        }
+        let text = format!("{stamp} {msg}\n");
+        self.last = Some((msg, at));
+        Some(text)
+    }
+}
+
+/// Writes the board's messages, in a thread of its own (a slow flash must not hold up the logcat
+/// reader).
+fn board_watch(rx: mpsc::Receiver<(String, bool)>) {
+    let path = board_log().to_string_lossy().into_owned();
+    let seen = fs::read_to_string(BOARD_SEEN).unwrap_or_default().trim().to_string();
+    let mut board = BoardLog { seen, last: None };
+    let mut file = None;
+    for (line, old) in rx {
+        if let Some(text) = board.take(&line, old) {
+            append_log(&mut file, &path, BOARD_LOG_MAX, text.as_bytes());
+            let _ = fs::write(BOARD_SEEN, &board.seen);
         }
     }
 }
@@ -2599,10 +2730,12 @@ fn cmd_run() -> i32 {
     let (hide, ui) = (cfg.hide_official, cfg.ui);
     spawn_named("sampler", move || sampler(hide, ui));
     let (tx, rx) = mpsc::sync_channel(OFFICIAL_QUEUE);
+    let (board_tx, board_rx) = mpsc::sync_channel(BOARD_QUEUE);
     let keep_lines = cfg.ui;
-    spawn_named("logcat", move || logcat_reader(tx, keep_lines));
+    spawn_named("logcat", move || logcat_reader(tx, board_tx, keep_lines));
     let (secs, action) = (cfg.silent_seconds, cfg.silent_action.clone());
     spawn_named("silent-start", move || silent_start_watch(secs, action, rx));
+    spawn_named("board", move || board_watch(board_rx));
     if cfg.ui {
         let web_cfg = cfg.clone();
         spawn_named("web", move || web::serve(web_cfg));
@@ -3496,6 +3629,63 @@ mod tests {
     }
 
     #[test]
+    fn amplifier_board_messages_are_read() {
+        // Captured from the speaker on 2026-10-29 (Cast 1.52), right after a reboot.
+        let read = |l: &str| board_message(l).map(|(s, m)| format!("{s} {m}"));
+        let rd = |s: &str| format!("{s} E/luciUART( 1034): read() RemoteID = 43690 ");
+        assert_eq!(
+            read(&(rd("10-29 14:16:16.357") + "Command = 64 Type = 2 Status = 0 DataLen = 2 sData = 44TCONNECTABLENamerd")),
+            Some(r#"10-29 14:16:16.357 from board 64 set "44""#.into())
+        );
+        assert_eq!(
+            read(&(rd("01-01 01:00:29.926") + "Command = 5 Type = 1 Status = 0 DataLen = 0 sData = READ_BT_DeviceNamerd")),
+            Some(r#"01-01 01:00:29.926 from board 5 get """#.into())
+        );
+        // The line before each message says the same without its data.
+        assert_eq!(read(&(rd("10-29 14:16:16.357") + "Command = 64 Type = 2 Status = 0 DataLen = 2")), None);
+        let wr = |s: &str, mid: u32, data: &str| format!("{s} I/luciUART( 1034): write() MID = {mid}  bytes = 12 data = {data} m_fd = 0x7");
+        assert_eq!(read(&wr("10-29 14:16:16.412", 50, "19")), Some(r#"10-29 14:16:16.412 to board 50 "19""#.into()));
+        assert_eq!(read(&wr("10-29 14:16:16.271", 209, "(null)")), Some(r#"10-29 14:16:16.271 to board 209 """#.into()));
+        assert_eq!(
+            read(&wr("01-01 01:00:29.934", 208, "FriendlyName:Łazienka")),
+            Some(r#"01-01 01:00:29.934 to board 208 "FriendlyName:Łazienka""#.into())
+        );
+        // A password set for AirPlay is not kept; an empty one says that there is none.
+        assert_eq!(
+            read(&wr("01-01 01:00:29.926", 208, "AirplayPassword:hunter2")),
+            Some(r#"01-01 01:00:29.926 to board 208 "AirplayPassword:***""#.into())
+        );
+        assert_eq!(
+            read(&wr("01-01 01:00:29.926", 208, "AirplayPassword:")),
+            Some(r#"01-01 01:00:29.926 to board 208 "AirplayPassword:""#.into())
+        );
+        assert_eq!(read(&wr("10-29 14:16:16.170", 91, "CC:90:93:26:6A:22")).map(|l| l.contains("6A:22")), Some(true));
+        assert_eq!(read("01-01 01:00:28.160 W/luciUART( 1034): ReadAvailableBytes(34) given more than PacketDataLength(1)"), None);
+        assert_eq!(read("01-01 01:00:24.677 E/luciUART( 1034): tcsetattr succeed"), None);
+        assert_eq!(read("--------- beginning of main"), None);
+    }
+
+    #[test]
+    fn amplifier_board_messages_are_kept_once() {
+        let line = |stamp: &str, data: &str| format!("{stamp} I/luciUART( 1034): write() MID = 64  bytes = 12 data = {data} m_fd = 0x7");
+        let mut b = BoardLog { seen: String::new(), last: None };
+        // Right after a boot, everything logcat has is new.
+        assert_eq!(b.take(&line("01-01 01:00:28.465", "50"), true).as_deref(), Some("01-01 01:00:28.465 to board 64 \"50\"\n"));
+        // The firmware sends the volume two or three times in a row.
+        assert_eq!(b.take(&line("01-01 01:00:28.501", "50"), true), None);
+        assert!(b.take(&line("10-29 14:03:29.277", "44"), false).is_some());
+        assert_eq!(b.take(&line("10-29 14:03:29.306", "44"), false), None);
+        assert!(b.take(&line("10-29 14:03:33.000", "44"), false).is_some(), "the same level again later");
+        // An agent started again keeps what came after the last message it took, not that again.
+        let mut again = BoardLog { seen: b.seen.clone(), last: None };
+        assert_eq!(again.take(&line("10-29 14:03:29.277", "44"), true), None);
+        assert!(again.take(&line("10-29 14:05:00.000", "39"), true).is_some());
+        assert!(again.take(&line("10-29 14:06:00.000", "40"), false).is_some());
+        assert_eq!(stamp_ms("10-29 14:03:29.277").unwrap() - stamp_ms("10-29 14:03:27.777").unwrap(), 1500);
+        assert_eq!(stamp_ms("10-29 14:03:29,277"), None);
+    }
+
+    #[test]
     fn routes_match_prefixes() {
         let ip: Ipv4Addr = "199.232.210.248".parse().unwrap();
         assert!(in_route(ip, "199.232.210.248"));
@@ -3950,13 +4140,15 @@ mod tests {
     #[test]
     fn parsers_survive_garbage() {
         let mut rng = Rng(0x2545_F491_4F6C_DD1D);
-        let seeds: [&[u8]; 6] = [
+        let seeds: [&[u8]; 8] = [
             b"1383 (spot (hi) x) S 1 1383 1383 0 -1 4194560 2711 0 0 0 1200 345 0 0 20 0 41 0 5321",
             &[0x00, 0x00, 0x01, 0x00, 0x32, 0x01, 0xc3, 0x5e, 0x00, 0x01, 0x34, 0x00, 0x00, 0x02],
             b"Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\n*\t0000E8C7\t00000000\t0201\t0\t0\t0\t0000FFFF",
             b"10-06 19:11:45.697 E/SPOTIFY ( 1383): dequeue  no data condition",
             b"lithify-librespot /tmp/lithify-librespot tmpfs rw 0 0\n",
             "199.232.1.2/16 Łazienka LITHIFY_DONE".as_bytes(),
+            "10-29 14:16:16.357 E/luciUART( 1034): read() RemoteID = 43690 Command = 64 Type = 2 Status = 0 DataLen = 2 sData = 4ł".as_bytes(),
+            b"01-01 01:00:29.934 I/luciUART( 1034): write() MID = 208  bytes = 32 data = AirplayPassword:x m_fd = 0x7",
         ];
         for round in 0..20_000 {
             let input = rng.mutate(seeds[round % seeds.len()]);
@@ -3966,6 +4158,8 @@ mod tests {
             let _ = parse_reject_routes(&text);
             let _ = own_networks(&text);
             let _ = logcat_tag(&text);
+            let _ = board_message(&text);
+            let _ = BoardLog { seen: String::new(), last: None }.take(&text, round % 2 == 0);
             let _ = canonical_route(&text);
             let _ = in_route(Ipv4Addr::LOCALHOST, &text);
             let _ = is_mount_point(&text, "/tmp/lithify-librespot");
