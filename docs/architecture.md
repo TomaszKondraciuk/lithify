@@ -185,6 +185,16 @@ sends full-scale samples, and 16 bits with dither lose nothing audible on this 9
 So the default is `S16`, for the longer buffer. With `mixer = "softvol"` librespot turns the
 volume down itself, which at 16 bits costs resolution (one bit per 6 dB), so `S32` suits it better.
 
+librespot always sends two channels. The speaker's amplifier board has a Stereo/Mono switch: on
+stereo the speaker plays the left channel and its output for a second, passive speaker the right
+one, so a single speaker misses half of a stereo mix. Neither librespot nor the firmware can mix
+them down (the firmware's channel choice, left, right or stereo, is for its own stereo pairs and
+its own sources). `channels = "mono"` does it in ALSA: the bundle's `alsa.conf` ends with
+Lithify's definitions (`build/alsa-lithify.conf`), among them `lithify_mono`, a `route` device
+that sends half of each channel to both outputs, and librespot then plays to
+`lithify_mono:"<device>"`. A sound in one channel only comes out 6 dB quieter; a stereo mix keeps
+its loudness.
+
 ## Build reproducibility
 
 `versions.toml` pins librespot, Lithify's own changes to it (patch files in `build/patches/`),

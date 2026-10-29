@@ -467,7 +467,13 @@ pub fn librespot_args(s: &Settings, base: &str) -> Vec<String> {
     kv("--name", if s.get("name").is_empty() { FALLBACK_NAME } else { s.get("name") });
     kv("--device-type", s.get("device_type"));
     kv("--backend", s.get("backend"));
-    kv("--device", s.get("device"));
+    if s.get("channels") == "mono" {
+        // Both channels into both outputs, through the bundle's own ALSA definition (alsa.conf:
+        // lithify_mono) in front of the output set; quoted, as a device name has commas.
+        kv("--device", &format!("lithify_mono:\"{}\"", s.get("device")));
+    } else {
+        kv("--device", s.get("device"));
+    }
     kv("--format", s.get("format"));
     kv("--bitrate", s.get("bitrate"));
     kv("--mixer", s.get("mixer"));
@@ -807,6 +813,7 @@ mod tests {
         assert_eq!(val("--onevent"), Some("/lsync/lithify/lithify-agent onevent"));
         assert_eq!(val("--cache"), Some("/lsync/lithify/cache"));
         assert_eq!(val("--tmp"), Some(LIBRESPOT_TMP)); // downloads into a tmpfs of their own
+        assert_eq!(val("--device"), Some("plughw:0,0")); // stereo
         assert!(!a.contains(&"--enable-volume-normalisation".to_string()));
         assert_eq!(a.last().map(String::as_str), Some("--ap-port=443"));
         // "current" volume is left to the agent; softvol drops the ALSA mixer options
@@ -815,6 +822,10 @@ mod tests {
         assert!(!a.iter().any(|x| x == "--initial-volume" || x == "--alsa-mixer-control"));
         assert!(a.windows(2).any(|w| w == ["--autoplay", "on"]));
         assert!(a.contains(&"--enable-volume-normalisation".to_string()));
+        // mono: the output set, behind the bundle's mixing definition
+        let (s, _) = Settings::parse("name=x\nchannels=mono\ndevice=hw:0,0\n");
+        let a = librespot_args(&s, "/b");
+        assert!(a.windows(2).any(|w| w == ["--device", "lithify_mono:\"hw:0,0\""]));
     }
 
     #[test]
