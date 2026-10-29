@@ -1,6 +1,6 @@
 [package]
 name = "lithify-agent"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 description = "Lithify agent: librespot glue, watchdog and web page on Lithe Audio (Libre LS9) speakers"
 
