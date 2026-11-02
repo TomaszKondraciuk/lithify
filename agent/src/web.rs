@@ -1700,17 +1700,23 @@ fn ring() -> MutexGuard<'static, VecDeque<String>> {
     RING.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// At most this much text in all (a line can be 4 KB).
+/// At most this much text in all.
 const RING_BYTES: usize = 512 * 1024;
 static RING_SIZE: AtomicUsize = AtomicUsize::new(0);
 
-/// Keep one line of librespot's or the agent's output (from the agent's logcat reader).
+/// A line is kept up to this long. librespot dumps whole messages up to logcat's 4 KB a line: on
+/// 2026-10-29 a jam's 123 session updates filled 90% of the ring and pushed days out of it.
+const RING_LINE_BYTES: usize = 1024;
+
+/// Keep one line of librespot's or the agent's output (from the agent's logcat reader; the
+/// watches got it whole before).
 pub(crate) fn remember(line: String) {
     if line.contains(" librespot_core::session] Authenticated as ") {
         if let Some((start, end)) = account_span(&line) {
             *ACCOUNT.lock().unwrap_or_else(|e| e.into_inner()) = Some(line[start..end].to_string());
         }
     }
+    let line = cut_line(line, RING_LINE_BYTES);
     let mut ring = ring();
     let mut size = RING_SIZE.load(Ordering::Relaxed) + line.len();
     ring.push_back(line);
@@ -1721,6 +1727,22 @@ pub(crate) fn remember(line: String) {
         }
     }
     RING_SIZE.store(size, Ordering::Relaxed);
+}
+
+/// `line` with no more than `max` bytes of it (cut where a character starts), saying how much
+/// was cut.
+fn cut_line(mut line: String, max: usize) -> String {
+    if line.len() <= max {
+        return line;
+    }
+    let mut end = max;
+    while !line.is_char_boundary(end) {
+        end -= 1;
+    }
+    let cut = line.len() - end;
+    line.truncate(end);
+    line.push_str(&format!(" … ({cut} bytes cut)"));
+    line
 }
 
 /// librespot's and the agent's last `n` lines as one text: taken from the reader's ring under
@@ -1816,6 +1838,9 @@ fn redact_with(l: &str, names: &[String]) -> String {
         Some(i) => format!("{}blob [hidden]", &l[..i]),
         None => mask_account(l).unwrap_or_else(|| l.to_string()),
     };
+    if let Some(m) = mask_long_codes(&out) {
+        out = m;
+    }
     if let Some(m) = mask_username(&out) {
         out = m;
     }
@@ -1871,6 +1896,37 @@ fn mask_username(l: &str) -> Option<String> {
     let start = l.find(KEY)? + KEY.len();
     let end = l[start..].find(char::is_whitespace).map_or(l.len(), |n| start + n);
     Some(format!("{}{}{}", &l[..start], masked(&l[start..end]), &l[end..]))
+}
+
+/// Long runs of letters and digits hidden: the long codes librespot writes at its trace level
+/// (`--verbose` among the extra arguments), and the firmware's masks of web addresses
+/// ("https://XXXX…"). Spotify's ids and hashes are shorter (a device id has 40 characters).
+fn mask_long_codes(l: &str) -> Option<String> {
+    const LONGEST_KEPT: usize = 63;
+    let code_char = |b: u8| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'+' | b'/' | b'=');
+    let bytes = l.as_bytes();
+    let (mut out, mut kept, mut i) = (String::new(), 0, 0);
+    while i < bytes.len() {
+        if !code_char(bytes[i]) {
+            i += 1;
+            continue;
+        }
+        // (a run is ASCII only, so its ends are where characters start; the slashes it starts
+        // with stay, as in "https://")
+        let mut start = i;
+        while i < bytes.len() && code_char(bytes[i]) {
+            i += 1;
+        }
+        while start < i && bytes[start] == b'/' {
+            start += 1;
+        }
+        if i - start > LONGEST_KEPT {
+            out.push_str(&l[kept..start]);
+            out.push_str("[hidden]");
+            kept = i;
+        }
+    }
+    (kept > 0).then(|| out + &l[kept..])
 }
 
 /// A name's first two characters, the rest hidden.
@@ -2930,6 +2986,36 @@ mod tests {
         // a short name stays where it is part of other words
         assert_eq!(account_names("x Authenticated as 'ann' !"), vec!["11160523586".to_string()]);
         *ACCOUNT.lock().unwrap() = None;
+    }
+
+    #[test]
+    fn logs_hide_long_codes() {
+        // librespot at trace level (2026-11-02, on the speaker): long codes inside a line or on
+        // a line of their own; the firmware's mask of a web address goes too, a device id stays
+        let code = format!("Cid{}", "zcG90aWZ5+/=".repeat(25));
+        let t = redact(&format!(
+            "11-02 11:34:08.796 I/lithify-agent( 2617): [2026-11-02T10:34:08Z TRACE librespot_core::dealer::protocol] websocket request: \"playlist_play_request\": String(\"{code}\"),\n\
+             11-02 11:34:08.797 I/lithify-agent( 2617):                     \"playlist_play_request\": String(\"{code}\"),\n\
+             11-02 10:55:45.151 I/lithify-agent( 3541): [2026-11-02T09:55:45Z WARN  librespot_audio::fetch] Fetching https://{} failed with error Error {{ kind: Unavailable }}, trying next\n\
+             11-02 11:34:08.818 I/lithify-agent( 2617): [2026-11-02T10:34:08Z DEBUG librespot_connect::spirc] handling: 'endpoint: play' from 0d5ac26d13241c8d80acaf2d1ce2c877c2316b7c",
+            "X".repeat(150)
+        ));
+        assert!(!t.contains("zcG90aWZ5+/=zcG90aWZ5"), "{t}");
+        let l: Vec<&str> = t.lines().collect();
+        assert!(l[0].ends_with("] websocket request: \"playlist_play_request\": String(\"[hidden]\"),"), "{}", l[0]);
+        assert!(l[1].ends_with("  \"playlist_play_request\": String(\"[hidden]\"),"), "{}", l[1]);
+        assert!(l[2].contains("] Fetching https://[hidden] failed with error"), "{}", l[2]);
+        assert!(l[3].ends_with("from 0d5ac26d13241c8d80acaf2d1ce2c877c2316b7c"), "{}", l[3]);
+        assert_eq!(mask_long_codes("none here: ł 0d5ac26d13241c8d80acaf2d1ce2c877c2316b7c /lsync/lithify"), None);
+    }
+
+    #[test]
+    fn a_long_line_is_cut_where_a_character_starts() {
+        assert_eq!(cut_line("short".to_string(), 10), "short");
+        // 'ł' takes the 10th and 11th byte
+        assert_eq!(cut_line(format!("{}łż", "a".repeat(9)), 10), "aaaaaaaaa … (4 bytes cut)");
+        let long = cut_line("x".repeat(4000), RING_LINE_BYTES);
+        assert!(long.starts_with(&"x".repeat(RING_LINE_BYTES)) && long.ends_with("x … (2976 bytes cut)"), "{long}");
     }
 
     #[test]
