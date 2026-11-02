@@ -47,8 +47,10 @@ only make the sound quieter than the speaker's own volume. Switch it back on the
 - Click **Check connections** on the page. Servers marked "no connection" or "slow" are the
   problem.
 - Some internet providers reach a part of Spotify's content servers (CDN) badly. Spotify then
-  waits 10 seconds or more before it tries another one. If the same server keeps failing, add its
-  name to *Settings → Advanced → CDN servers to skip*, and the speaker will skip it at once.
+  waits 10 seconds or more before it tries another one. The speaker measures the CDNs every 30
+  minutes and skips the ones that do not answer; the *Network* card shows the last measurement.
+  If a server keeps failing all the same, add its name to *Settings → Advanced → CDN servers to
+  skip*, and the speaker will skip it for good.
 - Look at the *Network* card. A signal weaker than about −70 dBm (a lower number is weaker), or the
   2.4 GHz band in a building with many networks, causes drop-outs. A 5 GHz network usually helps.
 - **Run a check** on the librespot card counts buffer underruns, the moments when music ran out

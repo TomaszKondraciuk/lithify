@@ -27,6 +27,7 @@ extra_args               librespot  list    -           arg                     
 ui                       agent      bool    true        -                             hidden    agent
 ui_port                  agent      int     8090        1024-65535                    page      agent
 ui_pin                   agent      text    -           pin                           page      agent
+cdn_choice               agent      choice  auto        auto|list                     network   agent
 fastfail_hosts           agent      list    -           host                          network   agent
 fastfail_routes          agent      list    -           ipv4net                       network   agent
 spin_threshold_pct       agent      int     85          30-100                        advanced  agent

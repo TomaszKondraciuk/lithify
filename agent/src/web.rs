@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use crate::settings;
 use crate::{
-    base_dir, board_log, BUILD, event, find_bytes as find, find_pid, holds_pcm, http_date, in_route, librespot_args, link_note, log,
+    base_dir, cdn, utc_of, board_log, BUILD, event, find_bytes as find, find_pid, holds_pcm, http_date, in_route, librespot_args, link_note, log,
     log_flush, mixer_of, official_spotify, opt_value, output_within, pcm_status_seen, proc_uptime_s, read_volume,
     read_within, restart_librespot_now, root_run, root_run_with, shared, spawn_named, system_uptime, take_place, trial_start,
     unreachable_routes, utc_now, wifi_seen, write_state, Config, Link, LinkNote, INSTALLED_FILE, LIBRESPOT_STATE_FILE,
@@ -1628,7 +1628,30 @@ fn network_json(cfg: &Config) -> String {
         .opt("ip", ip.as_deref().or(json_field(&eureka, "ip_address").as_deref()))
         .raw("fastfail_routes", arr(unreachable_routes().iter().map(|r| q(r))))
         .raw("fastfail_hosts", arr(cfg.fastfail_hosts.iter().map(|h| q(h))))
+        .raw("cdn", cdn_json(cfg))
         .end()
+}
+
+/// The audio CDNs as the last round measured them (cdn.rs): each one's addresses, connections
+/// tried and those that worked, their usual time, and why it is skipped, if it is.
+fn cdn_json(cfg: &Config) -> String {
+    let snapshot = cdn::last();
+    let list = snapshot.iter().flat_map(|s| {
+        s.cdns.iter().filter(|m| !m.addrs.is_empty()).map(move |m| {
+            let skipped = s.skipped.iter().find(|k| k.name == m.name).map(|k| k.verdict.as_str());
+            Obj::new()
+                .str("name", m.name)
+                .num("addresses", m.addrs.len())
+                .num("tried", m.tried)
+                .num("ok", m.ok)
+                .opt_num("ms", m.ms)
+                .opt("skipped", skipped)
+                .bool("listed", m.listed)
+                .end()
+        })
+    });
+    let checked = snapshot.as_ref().filter(|s| s.at > 0).map(|s| utc_of(s.at as i64));
+    Obj::new().bool("auto", cfg.cdn_auto).opt("checked", checked.as_deref()).raw("list", arr(list)).end()
 }
 
 /// (ESSID, frequency in MHz, bit rate in Mb/s) from `iwconfig wlan0`.
