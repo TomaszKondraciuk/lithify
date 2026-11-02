@@ -1438,10 +1438,12 @@
     /libmdns::fsm\] couldn't parse packet from/];
   // Expected as well, as the agent counts them: the device running dry as the next track starts
   // (within 1.5 s of "loaded"), the dealer of the session a new login replaced closing (within
-  // 10 s of "Authenticated as"), and a dealer whose connection dropped and came back: spirc
-  // announced the device again within 5 s.
+  // 10 s of "Authenticated as"), a dealer whose connection dropped and came back: spirc
+  // announced the device again within 5 s, and the access point lost once librespot signed in
+  // again (LinkWatch restarts it for that; the agent's link_note knows these lines).
   const DEALER_DROP = /librespot_core::dealer\] (Websocket connection failed|Websocket peer does not respond|Error while closing websocket)/;
   const DEALER_BACK = /librespot_connect::spirc\] (active device is <|trying to take over control automatically)/;
+  const SESSION_LOST = /librespot_core::session\] Connection to server closed\.|ERROR +librespot_core::session\] .*\(os error |librespot_[\w:]+\] .*session lost connection to server/;
   const lineMs = (l) => {
     const m = /^\d\d-\d\d (\d\d):(\d\d):(\d\d)\.(\d{3}) /.exec(l);
     return m ? ((Number(m[1]) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1000 + Number(m[4]) : null;
@@ -1450,10 +1452,15 @@
     let loaded = null;
     let login = null;
     let drops = []; // the dealer's warnings since its connection dropped
+    let lost = []; // the access point's losses since librespot last signed in
     const within = (at, now, ms) => at !== null && now !== null && now >= at && now - at <= ms;
     lines.forEach((l, i) => {
       if (/librespot_playback::player\] .* loaded$/.test(l)) loaded = lineMs(l);
-      else if (/librespot_core::session\] Authenticated as/.test(l)) login = lineMs(l);
+      else if (/librespot_core::session\] Authenticated as/.test(l)) {
+        login = lineMs(l);
+        lost.forEach((d) => { kinds[d] = 'muted'; });
+        lost = [];
+      } else if (kinds[i] && SESSION_LOST.test(l)) lost.push(i);
       else if (DEALER_BACK.test(l)) {
         const now = lineMs(l);
         if (drops.length && within(lineMs(lines[drops[0]]), now, 5000)) drops.forEach((d) => { kinds[d] = 'muted'; });

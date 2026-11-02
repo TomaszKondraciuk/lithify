@@ -1,0 +1,219 @@
+From: Lithify <lithify@localhost>
+Subject: [PATCH] connect: take a playlist's context from the playlist service
+
+Context resolve leaves out the podcast episodes of a playlist that mixes them with tracks. The
+official clients list those episodes all the same, and a play command picks one by its uid
+alone (skip_to with an empty track_uri). librespot then found no such track and started the
+playlist's first one instead ("Failed to resolve index by Some(Uid(..)), using fallback index:
+None"). The playlist service lists every item, each with the uid the clients know it by, so a
+playlist's context comes from it; context resolve is asked as before when the service gives no
+whole answer.
+
+---
+diff --git a/connect/src/context_resolver.rs b/connect/src/context_resolver.rs
+index 067069c6..52b7278c 100644
+--- a/connect/src/context_resolver.rs
++++ b/connect/src/context_resolver.rs
+@@ -214,7 +214,13 @@ impl ContextResolver {
+ 
+         match next.update {
+             ContextType::Default => {
+-                let mut ctx = self.session.spclient().get_context(resolve_uri).await;
++                // a playlist comes from the playlist service: context resolve leaves out the
++                // podcast episodes of one that mixes them with tracks
++                let playlist = crate::playlist_context::resolve(&self.session, resolve_uri).await;
++                let mut ctx = match playlist {
++                    Some(ctx) => Ok(ctx),
++                    None => self.session.spclient().get_context(resolve_uri).await,
++                };
+                 if let Ok(ctx) = ctx.as_mut() {
+                     ctx.uri = Some(next.context_uri().to_string());
+                     ctx.url = ctx.uri.as_ref().map(|s| format!("context://{s}"));
+diff --git a/connect/src/lib.rs b/connect/src/lib.rs
+index ba00aa4c..c54473f9 100644
+--- a/connect/src/lib.rs
++++ b/connect/src/lib.rs
+@@ -10,6 +10,7 @@ use librespot_protocol as protocol;
+ 
+ mod context_resolver;
+ mod model;
++mod playlist_context;
+ mod shuffle_vec;
+ mod spirc;
+ mod state;
+diff --git a/connect/src/playlist_context.rs b/connect/src/playlist_context.rs
+new file mode 100644
+index 00000000..1b3d4c8d
+--- /dev/null
++++ b/connect/src/playlist_context.rs
+@@ -0,0 +1,170 @@
++//! A playlist's context from the playlist service.
++//!
++//! Context resolve leaves out the podcast episodes of a playlist that mixes them with tracks.
++//! The official clients list those episodes all the same and pick one by its uid, which
++//! librespot then could not find: it started the playlist's first track instead. The playlist
++//! service lists every item, each with the uid the clients know it by.
++
++use crate::{
++    core::{Session, SpotifyUri},
++    protocol::{
++        context::Context, context_page::ContextPage, context_track::ContextTrack,
++        playlist4_external::SelectedListContent,
++    },
++};
++use protobuf::Message;
++use std::collections::HashMap;
++
++/// The context of the playlist `uri`, or `None` when `uri` names no playlist or the playlist
++/// service gives no whole answer for it (the caller asks context resolve then, as before).
++pub(crate) async fn resolve(session: &Session, uri: &str) -> Option<Context> {
++    let Ok(SpotifyUri::Playlist { id, .. }) = SpotifyUri::from_uri(uri) else {
++        return None;
++    };
++
++    let list = match session.spclient().get_playlist(&id).await {
++        Ok(bytes) => SelectedListContent::parse_from_bytes(&bytes).map_err(|e| e.to_string()),
++        Err(e) => Err(e.to_string()),
++    };
++    match list.map(|list| from_list(uri, &list)) {
++        Ok(Some(context)) => Some(context),
++        Ok(None) => {
++            debug!("the playlist service gave a part of <{uri}> only, resolving its context");
++            None
++        }
++        Err(why) => {
++            debug!("the playlist service has no <{uri}> ({why}), resolving its context");
++            None
++        }
++    }
++}
++
++/// The playlist as one page of a context, every item in it with its uid. `None` when `list`
++/// holds a part of the playlist only: context resolve pages through a long one.
++fn from_list(uri: &str, list: &SelectedListContent) -> Option<Context> {
++    let contents = list.contents.as_ref()?;
++    if contents.truncated() || contents.pos() != 0 || contents.items.is_empty() {
++        return None;
++    }
++
++    let tracks = contents
++        .items
++        .iter()
++        .map(|item| ContextTrack {
++            uri: Some(item.uri().to_string()),
++            uid: Some(hex(item.attributes.item_id())).filter(|uid| !uid.is_empty()),
++            ..Default::default()
++        })
++        .collect();
++
++    let mut metadata = HashMap::new();
++    for (key, value) in [
++        ("context_description", list.attributes.name()),
++        ("context_owner", list.owner_username()),
++    ] {
++        if !value.is_empty() {
++            metadata.insert(key.to_string(), value.to_string());
++        }
++    }
++
++    Some(Context {
++        uri: Some(uri.to_string()),
++        metadata,
++        pages: vec![ContextPage {
++            tracks,
++            ..Default::default()
++        }],
++        ..Default::default()
++    })
++}
++
++fn hex(bytes: &[u8]) -> String {
++    bytes.iter().map(|b| format!("{b:02x}")).collect()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::protocol::playlist4_external::{Item, ItemAttributes, ListAttributes, ListItems};
++
++    const URI: &str = "spotify:playlist:5a5aAgY3I9Xq7ZeSDa4tyN";
++
++    fn item(uri: &str, item_id: &[u8]) -> Item {
++        Item {
++            uri: Some(uri.to_string()),
++            attributes: Some(ItemAttributes {
++                item_id: Some(item_id.to_vec()),
++                ..Default::default()
++            })
++            .into(),
++            ..Default::default()
++        }
++    }
++
++    fn list(items: Vec<Item>, truncated: bool) -> SelectedListContent {
++        SelectedListContent {
++            owner_username: Some("owner".to_string()),
++            attributes: Some(ListAttributes {
++                name: Some("Serce. LSO".to_string()),
++                ..Default::default()
++            })
++            .into(),
++            contents: Some(ListItems {
++                pos: Some(0),
++                truncated: Some(truncated),
++                items,
++                ..Default::default()
++            })
++            .into(),
++            ..Default::default()
++        }
++    }
++
++    #[test]
++    fn episodes_stay_in_the_context_with_their_uids() {
++        let items = vec![
++            item(
++                "spotify:episode:3W1QPzNOGMkikaAMdtHoyT",
++                &[0x34, 0x5a, 0xaa, 0x11, 0xfd, 0x3f, 0x1c, 0x7a],
++            ),
++            item(
++                "spotify:track:3HO6JuiROufCO6HdEyLdb9",
++                &[0x5a, 0x04, 0x4c, 0xf5, 0x27, 0x03, 0x73, 0x8e],
++            ),
++        ];
++        let context = from_list(URI, &list(items, false)).unwrap();
++
++        assert_eq!(context.uri.as_deref(), Some(URI));
++        assert_eq!(context.pages.len(), 1);
++        let tracks: Vec<_> = context.pages[0]
++            .tracks
++            .iter()
++            .map(|t| (t.uri.as_deref().unwrap(), t.uid.as_deref().unwrap()))
++            .collect();
++        assert_eq!(
++            tracks,
++            [
++                ("spotify:episode:3W1QPzNOGMkikaAMdtHoyT", "345aaa11fd3f1c7a"),
++                ("spotify:track:3HO6JuiROufCO6HdEyLdb9", "5a044cf52703738e"),
++            ]
++        );
++        assert_eq!(context.metadata["context_description"], "Serce. LSO");
++        assert_eq!(context.metadata["context_owner"], "owner");
++    }
++
++    #[test]
++    fn an_item_without_an_id_gets_no_uid() {
++        let items = vec![item("spotify:track:3HO6JuiROufCO6HdEyLdb9", &[])];
++        let context = from_list(URI, &list(items, false)).unwrap();
++
++        assert_eq!(context.pages[0].tracks[0].uid, None);
++    }
++
++    #[test]
++    fn a_part_or_an_empty_playlist_is_left_to_context_resolve() {
++        let items = vec![item("spotify:track:3HO6JuiROufCO6HdEyLdb9", &[1])];
++        assert!(from_list(URI, &list(items, true)).is_none());
++        assert!(from_list(URI, &list(Vec::new(), false)).is_none());
++        assert!(from_list(URI, &SelectedListContent::default()).is_none());
++    }
++}

@@ -13,7 +13,12 @@ commit = "99b6088bf3ea028f90192676ac1a337fa4b2ed12"
 #   autoplay-refills    autoplay keeps going after its first batch of tracks (librespot PR #1782)
 #   log-keepalive-loss  a session that stops answering its keep-alive says so in the log (the
 #                       agent restarts librespot then; librespot ends that session silently)
-local_patches = ["autoplay-refills", "log-keepalive-loss"]
+#   playlist-episodes   a playlist's context comes from the playlist service, with its podcast
+#                       episodes: context resolve leaves them out, and picking one in the app
+#                       started the playlist's first track instead
+#   quiet-session-update  a session update librespot does not know (a jam member pausing) is a
+#                       debug line with its reason, not a 4 KB warning naming the jam's members
+local_patches = ["autoplay-refills", "log-keepalive-loss", "playlist-episodes", "quiet-session-update"]
 features = ["rustls-tls-webpki-roots", "alsa-backend", "with-libmdns"]
 # Refresh every dependency to its newest semver-compatible release at build time.
 update_deps = true

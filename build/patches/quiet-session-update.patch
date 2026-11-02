@@ -1,0 +1,39 @@
+From: Lithify <lithify@localhost>
+Subject: [PATCH] connect: tell only the reason of a session update it does not know
+
+A jam sends a session update each time a member pauses (SESSION_MEMBER_PAUSE_CHANGED), a reason
+the proto definitions here do not know. librespot logged every one as a warning with the whole
+session, about 4 KB naming each member, although it handles none of them. Like
+WIFI_BROADCAST_CHANGED before, such an update is now one debug line with its reason.
+
+---
+diff --git a/connect/src/spirc.rs b/connect/src/spirc.rs
+index e1b97078..6a7b1655 100644
+--- a/connect/src/spirc.rs
++++ b/connect/src/spirc.rs
+@@ -1830,19 +1830,15 @@ impl SpircTask {
+     }
+ 
+     fn handle_session_update(&mut self, session_update: FallbackWrapper<SessionUpdate>) {
+-        // we know that this enum value isn't present in our current proto definitions, by that
+-        // the json parsing fails because the enum isn't known as proto representation
+-        const WBC: &str = "WIFI_BROADCAST_CHANGED";
+-
+         let mut session_update = match session_update {
+             FallbackWrapper::Inner(update) => update,
+             FallbackWrapper::Fallback(value) => {
+-                let fallback_inner = value.to_string();
+-                if fallback_inner.contains(WBC) {
+-                    log::debug!("Received SessionUpdate::{WBC}");
+-                } else {
+-                    log::warn!("SessionUpdate couldn't be parse correctly: {value:?}");
+-                }
++                // the json parsing fails for a reason our proto definitions don't know, like
++                // WIFI_BROADCAST_CHANGED or a jam member pausing (SESSION_MEMBER_PAUSE_CHANGED);
++                // such an update isn't handled either way, and the session it carries names
++                // the jam's members, so only its reason is told
++                let reason = value.get("reason").and_then(|r| r.as_str());
++                log::debug!("Received SessionUpdate::{}", reason.unwrap_or("<unknown>"));
+                 return;
+             }
+         };
