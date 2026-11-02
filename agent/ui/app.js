@@ -47,6 +47,8 @@
       band_24: '2.4 GHz (channel {0})', band_5: '5 GHz (channel {0})',
       sig_excellent: 'excellent', sig_good: 'good', sig_fair: 'fair', sig_weak: 'weak', sig_pill: '{0} signal',
       ff_some: '{0} ({1} addresses blocked)',
+      k_cdn: 'Audio servers (CDN)', cdn_skip_failing: 'skipped, not answering', cdn_skip_slower: 'skipped, slower',
+      cdn_waiting: 'measured once nothing plays', cdn_checked: 'measured {0}', cdn_listed: 'skipped, on the list',
       hint_24: 'The speaker uses 2.4 GHz. If your router offers 5 GHz, moving the speaker there usually makes streaming steadier.',
       testing: 'testing…', testing_net: 'connecting to the Spotify services…',
       th_host: 'Host', th_what: 'Service', th_result: 'Result', th_time: 'Time',
@@ -149,6 +151,8 @@
       s_extra_args: 'More librespot options', h_extra_args: 'One per line, e.g. --enable-volume-normalisation.',
       s_ui_port: 'Port of this page', h_ui_port: 'After a change the page moves to the new address.',
       s_ui_pin: 'PIN for actions on this page', h_ui_pin: '4 to 12 digits; 6 or more are harder to guess. Status and tests stay open.',
+      s_cdn_choice: 'Audio servers (CDN)', c_cdn_choice_auto: 'pick by measurement', c_cdn_choice_list: 'skip only those listed below',
+      h_cdn_choice: 'Every 30 minutes the speaker measures Spotify’s audio servers and skips the ones that do not answer or are much slower than the best. Those listed below are skipped either way.',
       s_fastfail_hosts: 'CDN servers to skip (fail-fast)',
       h_fastfail_hosts: 'Servers your network cannot reach; Spotify switches to another one at once. One per line.',
       s_fastfail_routes: 'Addresses to skip (fail-fast)', h_fastfail_routes: 'IPv4 addresses or networks, e.g. 199.232.0.0/16.',
@@ -211,6 +215,8 @@
       band_24: '2,4 GHz (kanał {0})', band_5: '5 GHz (kanał {0})',
       sig_excellent: 'doskonały', sig_good: 'dobry', sig_fair: 'średni', sig_weak: 'słaby', sig_pill: '{0} sygnał',
       ff_some: '{0} (zablokowanych adresów: {1})',
+      k_cdn: 'Serwery audio (CDN)', cdn_skip_failing: 'pomijany, nie odpowiada', cdn_skip_slower: 'pomijany, wolniejszy',
+      cdn_waiting: 'pomiar, gdy nic nie gra', cdn_checked: 'pomiar: {0}', cdn_listed: 'pomijany, z listy',
       hint_24: 'Głośnik działa w paśmie 2,4 GHz. Jeśli router ma 5 GHz, przeniesienie tam głośnika zwykle stabilizuje odtwarzanie.',
       testing: 'testowanie…', testing_net: 'łączenie z usługami Spotify…',
       th_host: 'Host', th_what: 'Usługa', th_result: 'Wynik', th_time: 'Czas',
@@ -314,6 +320,8 @@
       s_extra_args: 'Dodatkowe opcje librespot', h_extra_args: 'Po jednej w linii, np. --enable-volume-normalisation.',
       s_ui_port: 'Port tej strony', h_ui_port: 'Po zmianie strona przeniesie się pod nowy adres.',
       s_ui_pin: 'PIN do akcji na tej stronie', h_ui_pin: 'Od 4 do 12 cyfr; 6 i więcej trudniej odgadnąć. Stan i testy zostają dostępne.',
+      s_cdn_choice: 'Serwery audio (CDN)', c_cdn_choice_auto: 'wybieraj według pomiarów', c_cdn_choice_list: 'pomijaj tylko te z listy poniżej',
+      h_cdn_choice: 'Co 30 minut głośnik mierzy serwery audio Spotify i pomija te, które nie odpowiadają albo są dużo wolniejsze od najlepszego. Te z listy poniżej są pomijane zawsze.',
       s_fastfail_hosts: 'Pomijane serwery CDN (fail-fast)',
       h_fastfail_hosts: 'Serwery, z którymi Twoja sieć nie może się połączyć; Spotify od razu użyje innego. Po jednym w linii.',
       s_fastfail_routes: 'Pomijane adresy (fail-fast)', h_fastfail_routes: 'Adresy IPv4 lub sieci, np. 199.232.0.0/16.',
@@ -606,6 +614,19 @@
     return dbm >= -55 ? 'sig_excellent' : dbm >= -67 ? 'sig_good' : dbm >= -75 ? 'sig_fair' : 'sig_weak';
   }
 
+  // The audio CDNs as the speaker last measured them: each one's usual connection time, and the
+  // skipped ones with the reason.
+  function cdnSummary(cdn) {
+    if (!cdn || !cdn.auto) return '';
+    const list = (cdn.list || []).map((c) => {
+      const ms = c.ms != null && c.tried ? ` ${c.ms} ms` : '';
+      if (c.listed) return `${c.name} (${t('cdn_listed')})`;
+      return c.skipped ? `${c.name}${c.skipped === 'slower' ? ms : ''} (${t(`cdn_skip_${c.skipped}`)})` : `${c.name}${ms}`;
+    });
+    if (!list.length) return t('cdn_waiting');
+    return `${list.join(' · ')}${cdn.checked ? ` – ${t('cdn_checked', when(cdn.checked))}` : ''}`;
+  }
+
   // How fresh something is ("3 minutes ago"); the exact time goes in the tooltip.
   function ago(stamp) {
     const s = (Date.now() - new Date(String(stamp || '').trim().replace(' ', 'T')).getTime()) / 1000;
@@ -674,6 +695,7 @@
       [t('k_signal'), n.signal_dbm != null ? `${n.signal_dbm} dBm` : '', sig],
       [t('k_rate'), n.bitrate_mbps != null ? `${n.bitrate_mbps} Mbit/s` : ''],
       [t('k_ip'), n.ip],
+      [t('k_cdn'), cdnSummary(n.cdn)],
       [t('k_failfast'), n.fastfail_hosts.length ? t('ff_some', n.fastfail_hosts.length, n.fastfail_routes.length) : ''],
     ]);
     const hint = $('net-hint');

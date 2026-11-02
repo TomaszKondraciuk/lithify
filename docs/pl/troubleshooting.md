@@ -51,9 +51,10 @@ może tylko ściszyć dźwięk poniżej głośności głośnika. Przełącz to z
 - Kliknij **Sprawdź połączenia** na stronie. Problemem są serwery oznaczone jako „brak
   połączenia” albo „wolno”.
 - Niektórzy dostawcy internetu słabo docierają do części serwerów z muzyką Spotify (CDN). Spotify
-  czeka wtedy 10 sekund albo dłużej, zanim spróbuje innego. Jeśli ten sam serwer ciągle zawodzi,
-  dodaj jego nazwę w *Ustawienia → Zaawansowane → Pomijane serwery CDN*, a głośnik od razu go
-  pominie.
+  czeka wtedy 10 sekund albo dłużej, zanim spróbuje innego. Głośnik co 30 minut mierzy te serwery
+  i pomija te, które nie odpowiadają; ostatni pomiar widać na karcie *Sieć*. Jeśli jakiś serwer
+  mimo to ciągle zawodzi, dodaj jego nazwę w *Ustawienia → Zaawansowane → Pomijane serwery CDN*,
+  a głośnik będzie go pomijał zawsze.
 - Spójrz na kartę *Sieć*. Sygnał słabszy niż około −70 dBm (niższa liczba to słabszy sygnał)
   albo pasmo 2,4 GHz w budynku z wieloma sieciami powodują przerwy. Sieć 5 GHz zwykle pomaga.
 - **Sprawdź działanie** na karcie librespot liczy niedobory bufora, czyli chwile, w których

@@ -161,6 +161,17 @@ How it stays light and recovers on its own:
   the default port 8090.
 - **Fail-fast routes expire** a day after their address was last resolved, and go away when the
   settings no longer ask for them.
+- **Audio CDNs picked by measurement** (`cdn_choice = "auto"`, `cdn.rs`): Spotify gives both
+  clients a list of addresses for every track, one per CDN, and they try them in order, each for
+  up to 10 s. Every 30 minutes the agent connects three times to each address of each CDN
+  (Akamai, Cloudflare, Fastly, Google: the host names Spotify uses for them), all at once, and
+  skips with fail-fast routes a CDN that answers fewer than 9 of 10 connections, or whose median
+  connection takes over three times as long as the best one's and 50 ms more. The best is never
+  skipped; with no CDN answering well (the network, not the CDNs) nothing changes. A change
+  waits for a second round that agrees, two minutes later. Skipped CDNs are measured only while
+  the PCM is closed, because their routes go for those seconds; librespot giving up on a CDN
+  ("trying next" without a fail-fast route behind it) starts a round at once. The page shows
+  the last round in the *Network* card.
 - **How long the speaker was down**: the agent's log lives in `/tmp` and goes with a reboot, so
   every 5 minutes the agent notes in `settings/alive` that it runs (from a thread of its own, once
   the clock is set). Started again after a reboot, it adds an event saying how long the speaker

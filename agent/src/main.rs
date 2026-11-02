@@ -35,6 +35,7 @@ use std::sync::{mpsc, Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+mod cdn;
 mod settings;
 mod web;
 
@@ -413,6 +414,8 @@ struct Config {
     wifi_scancfg: String,
     fastfail_hosts: Vec<String>,
     fastfail_routes: Vec<String>,
+    /// Skip the audio CDNs that measure badly (cdn.rs), besides the fail-fast lists.
+    cdn_auto: bool,
     ui: bool,
     ui_port: u16,
     ui_pin: String,
@@ -465,6 +468,7 @@ impl Config {
             wifi_scancfg: String::new(),
             fastfail_hosts: Vec::new(),
             fastfail_routes: Vec::new(),
+            cdn_auto: true,
             ui: true,
             ui_port: 8090,
             ui_pin: String::new(),
@@ -510,6 +514,7 @@ impl Config {
                 "wifi_scancfg" => c.wifi_scancfg = v.to_string(),
                 "fastfail_hosts" => c.fastfail_hosts = v.split_whitespace().map(str::to_string).collect(),
                 "fastfail_routes" => c.fastfail_routes = v.split_whitespace().map(str::to_string).collect(),
+                "cdn_choice" => c.cdn_auto = v != "list",
                 "ui" => c.ui = v == "1",
                 // A port outside the range is refused rather than moved (the page stays where it was).
                 "ui_port" => {
@@ -2247,6 +2252,7 @@ fn logcat_reader(official: mpsc::SyncSender<String>, board: mpsc::SyncSender<(St
                     Some("lithify-agent") => {
                         if new {
                             note_link(&line);
+                            cdn::note_line(&line);
                         }
                         if keep_lines {
                             web::remember(line);
@@ -2572,23 +2578,86 @@ fn in_route(ip: Ipv4Addr, route: &str) -> bool {
 /// A host's address stays blocked this long after it was last resolved (CDN addresses move).
 const FASTFAIL_KEEP: Duration = Duration::from_secs(24 * 3600);
 
-/// Keeps an `unreachable` route for every configured network and every address the configured
-/// hosts resolve to, and removes the ones that are no longer wanted.
-fn fastfail_watch(hosts: Vec<String>, routes: Vec<String>) {
+/// Keeps an `unreachable` route for every configured network, every address the configured
+/// hosts resolve to, and (with `cdn_auto`) every address of the audio CDNs the measurements skip
+/// (cdn.rs); removes the ones that are no longer wanted. Routes it did not add stay alone.
+fn fastfail_watch(hosts: Vec<String>, routes: Vec<String>, cdn_auto: bool) {
     let configured: Vec<String> = routes.iter().filter_map(|r| canonical_route(r)).collect();
     // Routes from an earlier agent: a host address may still be in use and expires like a fresh
-    // one; anything the settings no longer ask for goes at once.
+    // one; anything the settings no longer ask for goes at once. With the CDNs chosen by
+    // measurement, the earlier agent's host routes are the CDN choice's until a round measured
+    // their CDNs again.
     let start = Instant::now();
-    let mut expires: HashMap<String, Instant> = unreachable_routes()
-        .into_iter()
+    let earlier = unreachable_routes();
+    let mut expires: HashMap<String, Instant> = earlier
+        .iter()
         .map(|r| {
-            let keep = configured.contains(&r) || (r.ends_with("/32") && !hosts.is_empty());
-            (r, if keep { start + FASTFAIL_KEEP } else { start })
+            let keep = configured.contains(r) || (r.ends_with("/32") && !hosts.is_empty());
+            (r.clone(), if keep { start + FASTFAIL_KEEP } else { start })
         })
         .collect();
+    // (with hosts on the settings' list, its routes from before are theirs, kept for a day)
+    let mut cdn_routes: Vec<String> = if cdn_auto && hosts.is_empty() {
+        earlier.iter().filter(|r| r.ends_with("/32") && !configured.contains(r)).cloned().collect()
+    } else {
+        Vec::new()
+    };
+    let mut choice = cdn::Choice::default();
     let mut skipped: Vec<String> = Vec::new();
+    let (mut next_resolve, mut next_round) = (start, start);
     loop {
-        let (mut targets, all_resolved) = fastfail_targets(&hosts, &configured);
+        // librespot moving on from a CDN that did not answer: a round at once
+        if cdn_auto && cdn::take_trouble() {
+            next_round = next_round.min(Instant::now());
+        }
+        let now = Instant::now();
+        let round_due = cdn_auto && now >= next_round;
+        if now < next_resolve && !round_due {
+            let wake = if cdn_auto { next_resolve.min(next_round) } else { next_resolve };
+            thread::sleep((wake - now).min(Duration::from_secs(15)));
+            continue;
+        }
+        let (manual, all_resolved) = fastfail_targets(&hosts, &configured);
+        let before = parse_reject_routes(&fs::read_to_string("/proc/net/route").unwrap_or_default());
+        let cdn_before = cdn_routes.clone();
+        if round_due {
+            // A skipped CDN is measured only while nothing plays: its routes go for those seconds.
+            // Until a round has decided, every CDN is measured, so the first one waits for that.
+            let quiet = !pcm_busy_now();
+            if !quiet && !choice.decided() {
+                next_round = Instant::now() + cdn::RETRY;
+            } else {
+                if quiet {
+                    let listed = |r: &String| manual.contains(r) || expires.get(r).is_some_and(|e| *e > Instant::now());
+                    let lift: Vec<&String> = cdn_routes.iter().filter(|r| !listed(r)).collect();
+                    if !change_routes(&[], &lift) {
+                        log("fail-fast: the skipped CDNs' routes did not all go for the measurement");
+                    }
+                }
+                let leave_out: Vec<&str> =
+                    if quiet { Vec::new() } else { choice.skipped().iter().map(|s| s.name).collect() };
+                let round = cdn::measure(&leave_out, |names, addrs| {
+                    names.iter().any(|n| hosts.iter().any(|h| h == n))
+                        || (!addrs.is_empty() && addrs.iter().all(|ip| configured.iter().any(|r| in_route(*ip, r))))
+                });
+                for change in choice.update(&round) {
+                    event(&change.text);
+                }
+                cdn::remember(&round, &choice);
+                cdn_routes = choice.routes();
+                next_round = Instant::now()
+                    + if !choice.decided() {
+                        cdn::RETRY
+                    } else if choice.changing() {
+                        cdn::SOON
+                    } else {
+                        cdn::EVERY
+                    };
+            }
+        }
+        let mut targets: Vec<String> = manual.iter().chain(cdn_routes.iter()).cloned().collect();
+        targets.sort();
+        targets.dedup();
         let table = fs::read_to_string("/proc/net/route").unwrap_or_default();
         let own = own_networks(&table);
         let (keep, clash): (Vec<String>, Vec<String>) =
@@ -2599,50 +2668,63 @@ fn fastfail_watch(hosts: Vec<String>, routes: Vec<String>) {
             skipped = clash;
         }
         let now = Instant::now();
-        for t in &targets {
+        for t in manual.iter().filter(|t| targets.contains(t)) {
             expires.insert(t.clone(), now + FASTFAIL_KEEP);
         }
+        // ours to remove: a host address whose day is over, and what the CDN choice no longer wants
+        let ours_gone = |r: &String| {
+            let kept = expires.get(r).copied();
+            !targets.contains(r)
+                && (kept.is_some_and(|e| e <= now) || (cdn_before.contains(r) && !kept.is_some_and(|e| e > now)))
+        };
         let installed = parse_reject_routes(&table);
         let add: Vec<&String> = targets.iter().filter(|t| !installed.contains(t)).collect();
-        let del: Vec<&String> = installed.iter().filter(|r| expires.get(*r).is_some_and(|e| *e <= now)).collect();
-        let mut failed = false;
-        if !add.is_empty() || !del.is_empty() {
-            let script: String = add
-                .iter()
-                .map(|t| format!("ip route replace unreachable {t}\n"))
-                .chain(del.iter().map(|r| format!("ip route del unreachable {r}\n")))
-                .collect();
-            match root_run(&script, Duration::from_secs(8)) {
-                Ok(_) => {
-                    let list = |v: &[&String]| v.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
-                    if !add.is_empty() {
-                        event(&format!("fail-fast routes added: {}", list(&add)));
-                    }
-                    if !del.is_empty() {
-                        event(&format!("fail-fast routes removed: {}", list(&del)));
-                    }
-                    // The console answering says nothing about the commands: check the kernel.
-                    let now_installed = unreachable_routes();
-                    let missing = add.iter().any(|t| !now_installed.contains(*t));
-                    let left = del.iter().any(|r| now_installed.contains(*r));
-                    if missing || left {
-                        log("fail-fast routes: the kernel does not show every change yet; trying again in a minute");
-                        failed = true;
-                    }
-                }
-                Err(e) => {
-                    log(&format!("fail-fast routes via root console failed: {e}"));
-                    failed = true;
-                }
-            }
+        let del: Vec<&String> = installed.iter().filter(|r| ours_gone(r)).collect();
+        let failed = !change_routes(&add, &del);
+        // What changed since this pass began: the routes lifted for a measurement and put back
+        // are no news.
+        let list = |v: &[&String]| v.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
+        let added: Vec<&String> = targets.iter().filter(|t| !before.contains(t)).collect();
+        let removed: Vec<&String> = before.iter().filter(|r| ours_gone(r)).collect();
+        if !added.is_empty() {
+            event(&format!("fail-fast routes added: {}", list(&added)));
+        }
+        if !removed.is_empty() {
+            event(&format!("fail-fast routes removed: {}", list(&removed)));
+        }
+        if failed {
+            log("fail-fast routes: the kernel does not show every change yet; trying again in a minute");
         }
         // Forget what is gone, unless its route still has to be removed.
         expires.retain(|r, e| *e > now || (failed && installed.contains(r)));
-        if hosts.is_empty() && configured.is_empty() && expires.is_empty() {
+        if hosts.is_empty() && configured.is_empty() && expires.is_empty() && !cdn_auto {
             return; // nothing to keep up
         }
         // Re-resolve every 30 min (every minute until DNS works or the console answers).
-        thread::sleep(Duration::from_secs(if all_resolved && !failed { 1800 } else { 60 }));
+        next_resolve = Instant::now() + Duration::from_secs(if all_resolved && !failed { 1800 } else { 60 });
+    }
+}
+
+/// Adds and removes `unreachable` routes through the root console. True when the kernel shows
+/// every change: the console answering says nothing about the commands.
+fn change_routes(add: &[&String], del: &[&String]) -> bool {
+    if add.is_empty() && del.is_empty() {
+        return true;
+    }
+    let script: String = add
+        .iter()
+        .map(|t| format!("ip route replace unreachable {t}\n"))
+        .chain(del.iter().map(|r| format!("ip route del unreachable {r}\n")))
+        .collect();
+    match root_run(&script, Duration::from_secs(8)) {
+        Ok(_) => {
+            let now_installed = unreachable_routes();
+            add.iter().all(|t| now_installed.contains(*t)) && !del.iter().any(|r| now_installed.contains(*r))
+        }
+        Err(e) => {
+            log(&format!("fail-fast routes via root console failed: {e}"));
+            false
+        }
     }
 }
 
@@ -2695,7 +2777,7 @@ fn cmd_run() -> i32 {
     sweep_root_scripts();
     let cfg = Config::load();
     log(&format!(
-        "watchdog start ({}): spin>={:.0}% for {}s (cooldown {}s), respawn_missing={}, hide_official={}, silent_start={}s/{}, conflict_stop_librespot={}, fastfail_hosts={:?}, fastfail_routes={:?}, ui={} port {} pin={}",
+        "watchdog start ({}): spin>={:.0}% for {}s (cooldown {}s), respawn_missing={}, hide_official={}, silent_start={}s/{}, conflict_stop_librespot={}, fastfail_hosts={:?}, fastfail_routes={:?}, cdn_choice={}, ui={} port {} pin={}",
         base_dir().display(),
         cfg.spin_threshold * 100.0,
         cfg.spin_seconds,
@@ -2707,6 +2789,7 @@ fn cmd_run() -> i32 {
         cfg.conflict_stop_librespot,
         cfg.fastfail_hosts,
         cfg.fastfail_routes,
+        if cfg.cdn_auto { "auto" } else { "list" },
         cfg.ui,
         cfg.ui_port,
         if cfg.ui_pin.is_empty() { "off" } else { "on" }
@@ -2723,8 +2806,8 @@ fn cmd_run() -> i32 {
     }
     kill_stale_readers();
     // Always started: with no hosts and networks set it removes the routes left from before.
-    let (hosts, routes) = (cfg.fastfail_hosts.clone(), cfg.fastfail_routes.clone());
-    spawn_named("fastfail", move || fastfail_watch(hosts, routes));
+    let (hosts, routes, cdn_auto) = (cfg.fastfail_hosts.clone(), cfg.fastfail_routes.clone(), cfg.cdn_auto);
+    spawn_named("fastfail", move || fastfail_watch(hosts, routes, cdn_auto));
     let conflict = cfg.conflict_stop_librespot;
     spawn_named("luci", move || luci_watch(conflict));
     let (hide, ui) = (cfg.hide_official, cfg.ui);

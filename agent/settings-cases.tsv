@@ -53,6 +53,9 @@ value	fastfail_routes	199.232.0.0/	<refused>
 value	fastfail_routes	1.2.3.4/+16	<refused>
 value	fastfail_routes	01.2.3.4	<refused>
 value	fastfail_routes	2a04:4e42::/32	<refused>
+value	cdn_choice	list	list
+value	cdn_choice	\sauto\s	auto
+value	cdn_choice	fastest	<refused>
 value	fastfail_routes	0.0.0.0/0	<refused>
 value	fastfail_routes	1.0.0.0/7	<refused>
 value	fastfail_routes	10.1.2.3	<refused>
